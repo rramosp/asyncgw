@@ -325,6 +325,9 @@ DASHBOARD_HTML = r"""
                         <div id="infra-env-badge" class="px-2.5 py-1.5 rounded-lg font-semibold bg-indigo-950 text-indigo-400 border border-indigo-800">
                             LOCAL / MOCK MODE
                         </div>
+                        <a id="infra-gcp-project-link" href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5" title="Open Google Cloud Console">
+                            <i class="fa-brands fa-google text-blue-400"></i> GCP Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -342,110 +345,128 @@ DASHBOARD_HTML = r"""
                         <span class="text-xs px-2.5 py-1 rounded bg-slate-900 border border-slate-800 mono text-slate-300 flex items-center gap-1.5">
                             <i class="fa-brands fa-docker text-blue-400"></i> Repo: <span id="infra-ar-repo-name" class="text-indigo-400 font-semibold">asyncgw-docker</span>
                         </span>
-                        <a id="infra-ar-console-link" href="#" target="_blank" rel="noopener noreferrer" class="hidden text-xs font-semibold px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5">
-                            Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        <a id="infra-ar-console-link" href="https://console.cloud.google.com/artifacts" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 shadow-sm">
+                            Manage Repository in GCP <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                         </a>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <!-- Container 1: Gateway Image -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 hover:border-slate-700 transition shadow-lg">
-                        <div class="flex justify-between items-start">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white shadow-md">
-                                    <i class="fa-solid fa-server text-base"></i>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 hover:border-slate-700 transition shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white shadow-md">
+                                        <i class="fa-solid fa-server text-base"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-sm text-slate-100">asyncgw-gateway</h4>
+                                        <span class="text-[11px] text-slate-400">FastAPI Gateway & UI Dashboard Image</span>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 mono">:latest</span>
+                            </div>
+
+                            <div>
+                                <div class="text-[11px] font-semibold text-slate-400 mb-1 flex items-center justify-between">
+                                    <span>Artifact Registry URI</span>
+                                    <span class="text-[10px] text-slate-500">Docker / OCI Format</span>
+                                </div>
+                                <div id="infra-gw-img-uri" class="mono text-[11px] text-cyan-300 bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 break-all select-all">
+                                    us-central1-docker.pkg.dev/asyncgw-demo-project/asyncgw-docker/asyncgw-gateway:latest
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950/60 p-3 rounded-lg border border-slate-800/60">
+                                <div>
+                                    <span class="text-slate-500 block text-[11px]">Build Dockerfile:</span>
+                                    <span class="mono font-semibold text-slate-300">Dockerfile.gateway</span>
                                 </div>
                                 <div>
-                                    <h4 class="font-bold text-sm text-slate-100">asyncgw-gateway</h4>
-                                    <span class="text-[11px] text-slate-400">FastAPI Gateway & UI Dashboard Image</span>
+                                    <span class="text-slate-500 block text-[11px]">Base Image:</span>
+                                    <span class="mono font-semibold text-slate-300">python:3.11-slim</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500 block text-[11px]">Exposed Ports:</span>
+                                    <span class="mono font-semibold text-emerald-400">8080 (HTTP), 8000</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500 block text-[11px]">Entrypoint / CMD:</span>
+                                    <span class="mono font-semibold text-indigo-400">gateway</span>
                                 </div>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 mono">:latest</span>
-                        </div>
 
-                        <div>
-                            <div class="text-[11px] font-semibold text-slate-400 mb-1 flex items-center justify-between">
-                                <span>Artifact Registry URI</span>
-                                <span class="text-[10px] text-slate-500">Docker / OCI Format</span>
-                            </div>
-                            <div id="infra-gw-img-uri" class="mono text-[11px] text-cyan-300 bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 break-all select-all">
-                                us-central1-docker.pkg.dev/asyncgw-demo-project/asyncgw-docker/asyncgw-gateway:latest
+                            <div class="text-xs text-slate-400 pt-1 flex items-start gap-2">
+                                <i class="fa-solid fa-circle-info text-cyan-400 mt-0.5 text-[11px]"></i>
+                                <span>Deploys the public Cloud Run service providing OpenAI-compatible REST API endpoints, OpenAPI Swagger documentation, Web UI dashboard, and Pub/Sub producer.</span>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950/60 p-3 rounded-lg border border-slate-800/60">
-                            <div>
-                                <span class="text-slate-500 block text-[11px]">Build Dockerfile:</span>
-                                <span class="mono font-semibold text-slate-300">Dockerfile.gateway</span>
-                            </div>
-                            <div>
-                                <span class="text-slate-500 block text-[11px]">Base Image:</span>
-                                <span class="mono font-semibold text-slate-300">python:3.11-slim</span>
-                            </div>
-                            <div>
-                                <span class="text-slate-500 block text-[11px]">Exposed Ports:</span>
-                                <span class="mono font-semibold text-emerald-400">8080 (HTTP), 8000</span>
-                            </div>
-                            <div>
-                                <span class="text-slate-500 block text-[11px]">Entrypoint / CMD:</span>
-                                <span class="mono font-semibold text-indigo-400">gateway</span>
-                            </div>
-                        </div>
-
-                        <div class="text-xs text-slate-400 border-t border-slate-800/80 pt-3 flex items-start gap-2">
-                            <i class="fa-solid fa-circle-info text-cyan-400 mt-0.5 text-[11px]"></i>
-                            <span>Deploys the public Cloud Run service providing OpenAI-compatible REST API endpoints, OpenAPI Swagger documentation, Web UI dashboard, and Pub/Sub producer.</span>
+                        <!-- Card Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-gw-image" href="https://console.cloud.google.com/artifacts" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/60 text-cyan-300 hover:text-cyan-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-brands fa-docker"></i> Manage Image in Artifact Registry <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
                         </div>
                     </div>
 
                     <!-- Container 2: Worker Image -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 hover:border-slate-700 transition shadow-lg">
-                        <div class="flex justify-between items-start">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-orange-600 flex items-center justify-center text-white shadow-md">
-                                    <i class="fa-solid fa-gears text-base"></i>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 hover:border-slate-700 transition shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-orange-600 flex items-center justify-center text-white shadow-md">
+                                        <i class="fa-solid fa-gears text-base"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-sm text-slate-100">asyncgw-worker</h4>
+                                        <span class="text-[11px] text-slate-400">Inference Engine & Batch Worker Image</span>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-950 text-amber-400 border border-amber-800 mono">:latest</span>
+                            </div>
+
+                            <div>
+                                <div class="text-[11px] font-semibold text-slate-400 mb-1 flex items-center justify-between">
+                                    <span>Artifact Registry URI</span>
+                                    <span class="text-[10px] text-slate-500">Docker / OCI Format</span>
+                                </div>
+                                <div id="infra-wk-img-uri" class="mono text-[11px] text-amber-300 bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 break-all select-all">
+                                    us-central1-docker.pkg.dev/asyncgw-demo-project/asyncgw-docker/asyncgw-worker:latest
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950/60 p-3 rounded-lg border border-slate-800/60">
+                                <div>
+                                    <span class="text-slate-500 block text-[11px]">Build Dockerfile:</span>
+                                    <span class="mono font-semibold text-slate-300">Dockerfile.worker</span>
                                 </div>
                                 <div>
-                                    <h4 class="font-bold text-sm text-slate-100">asyncgw-worker</h4>
-                                    <span class="text-[11px] text-slate-400">Inference Engine & Batch Worker Image</span>
+                                    <span class="text-slate-500 block text-[11px]">Base Image:</span>
+                                    <span class="mono font-semibold text-slate-300">python:3.11-slim</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500 block text-[11px]">Health Probe Port:</span>
+                                    <span class="mono font-semibold text-emerald-400">8080 (/healthz)</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500 block text-[11px]">Supported Modes:</span>
+                                    <span class="mono font-semibold text-indigo-400">worker-all | primary | batch</span>
                                 </div>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-950 text-amber-400 border border-amber-800 mono">:latest</span>
-                        </div>
 
-                        <div>
-                            <div class="text-[11px] font-semibold text-slate-400 mb-1 flex items-center justify-between">
-                                <span>Artifact Registry URI</span>
-                                <span class="text-[10px] text-slate-500">Docker / OCI Format</span>
-                            </div>
-                            <div id="infra-wk-img-uri" class="mono text-[11px] text-amber-300 bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 break-all select-all">
-                                us-central1-docker.pkg.dev/asyncgw-demo-project/asyncgw-docker/asyncgw-worker:latest
+                            <div class="text-xs text-slate-400 pt-1 flex items-start gap-2">
+                                <i class="fa-solid fa-circle-info text-amber-400 mt-0.5 text-[11px]"></i>
+                                <span>Deploys continuous worker fleets and Cloud Run jobs for Pub/Sub stream consumption, Gemini Provisioned Throughput/Flex inference, batch splitting, and GCS reassembly.</span>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950/60 p-3 rounded-lg border border-slate-800/60">
-                            <div>
-                                <span class="text-slate-500 block text-[11px]">Build Dockerfile:</span>
-                                <span class="mono font-semibold text-slate-300">Dockerfile.worker</span>
-                            </div>
-                            <div>
-                                <span class="text-slate-500 block text-[11px]">Base Image:</span>
-                                <span class="mono font-semibold text-slate-300">python:3.11-slim</span>
-                            </div>
-                            <div>
-                                <span class="text-slate-500 block text-[11px]">Health Probe Port:</span>
-                                <span class="mono font-semibold text-emerald-400">8080 (/healthz)</span>
-                            </div>
-                            <div>
-                                <span class="text-slate-500 block text-[11px]">Supported Modes:</span>
-                                <span class="mono font-semibold text-indigo-400">worker-all | primary | batch</span>
-                            </div>
-                        </div>
-
-                        <div class="text-xs text-slate-400 border-t border-slate-800/80 pt-3 flex items-start gap-2">
-                            <i class="fa-solid fa-circle-info text-amber-400 mt-0.5 text-[11px]"></i>
-                            <span>Deploys continuous worker fleets and Cloud Run jobs for Pub/Sub stream consumption, Gemini Provisioned Throughput/Flex inference, batch splitting, and GCS reassembly.</span>
+                        <!-- Card Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-wk-image" href="https://console.cloud.google.com/artifacts" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-700/60 text-amber-300 hover:text-amber-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-brands fa-docker"></i> Manage Image in Artifact Registry <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -453,215 +474,256 @@ DASHBOARD_HTML = r"""
 
             <!-- SECTION 2: CLOUD RUN WORKERS & TRIGGER CONFIGURATION -->
             <div class="space-y-4">
-                <div class="border-b border-slate-800 pb-3">
-                    <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
-                        <i class="fa-solid fa-bolt text-amber-400"></i> Cloud Run Workers & Trigger Architecture
-                    </h3>
-                    <p class="text-xs text-slate-400">Detailed trigger mechanisms, event sources, scaling parameters, and runtime configuration for worker fleet services and jobs.</p>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-amber-400"></i> Cloud Run Workers & Trigger Architecture
+                        </h3>
+                        <p class="text-xs text-slate-400">Detailed trigger mechanisms, event sources, scaling parameters, and runtime configuration for worker fleet services and jobs.</p>
+                    </div>
+                    <a id="infra-link-cloudrun-overview" href="https://console.cloud.google.com/run" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-cloud text-indigo-400"></i> Cloud Run Fleet Overview <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <!-- Worker 1: Continuous Fleet Service -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">asyncgw-worker-fleet</h4>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">Service</span>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-bold text-sm text-slate-100">asyncgw-worker-fleet</h4>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">Service</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-0.5">Continuous auto-scaling worker fleet for online requests and decomposed batch tasks</p>
                                 </div>
-                                <p class="text-xs text-slate-400 mt-0.5">Continuous auto-scaling worker fleet for online requests and decomposed batch tasks</p>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 mono">1 &rarr; 50 instances</span>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 mono">1 &rarr; 50 instances</span>
+
+                            <!-- Trigger Model Box -->
+                            <div class="bg-slate-950 p-3.5 rounded-xl border border-emerald-900/40 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-satellite-dish text-emerald-400"></i> Trigger: Continuous Pub/Sub Streaming Pull
+                                    </span>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400">Always Active</span>
+                                </div>
+                                <p class="text-xs text-slate-300 leading-relaxed">
+                                    Continuously streams and pulls messages directly from Pub/Sub subscriptions <span class="mono text-indigo-300 font-semibold">asyncgw-requests-sub</span> and <span class="mono text-indigo-300 font-semibold">asyncgw-batch-items-sub</span> with zero polling idle delay.
+                                </p>
+                                <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 space-y-1">
+                                    <div class="flex justify-between"><span class="text-slate-500">Trigger Flow:</span> <span class="text-slate-300 font-medium">Pub/Sub publish &rarr; Streaming pull dispatch &rarr; LLM backend call &rarr; GCS & BQ update</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-500">CPU Allocation:</span> <span class="mono text-emerald-400 font-semibold">cpu_idle = false (Always Allocated)</span></div>
+                                </div>
+                            </div>
+
+                            <!-- Specs Table -->
+                            <div class="grid grid-cols-2 gap-2.5 text-xs">
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Compute Sizing</span>
+                                    <span class="font-semibold text-slate-200 mono">4 vCPU, 4 GiB RAM</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Ingress Security</span>
+                                    <span class="font-semibold text-slate-200 mono">Internal Only (VPC)</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Execution Command</span>
+                                    <span class="font-semibold text-indigo-400 mono">python -m asyncgw.main worker-all</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Service Account</span>
+                                    <span id="infra-wk-fleet-sa" class="font-semibold text-slate-300 mono text-[11px] truncate block">asyncgw-worker-sa@...</span>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Trigger Model Box -->
-                        <div class="bg-slate-950 p-3.5 rounded-xl border border-emerald-900/40 space-y-2.5">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-satellite-dish text-emerald-400"></i> Trigger: Continuous Pub/Sub Streaming Pull
-                                </span>
-                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400">Always Active</span>
-                            </div>
-                            <p class="text-xs text-slate-300 leading-relaxed">
-                                Continuously streams and pulls messages directly from Pub/Sub subscriptions <span class="mono text-indigo-300 font-semibold">asyncgw-requests-sub</span> and <span class="mono text-indigo-300 font-semibold">asyncgw-batch-items-sub</span> with zero polling idle delay.
-                            </p>
-                            <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 space-y-1">
-                                <div class="flex justify-between"><span class="text-slate-500">Trigger Flow:</span> <span class="text-slate-300 font-medium">Pub/Sub publish &rarr; Streaming pull dispatch &rarr; LLM backend call &rarr; GCS & BQ update</span></div>
-                                <div class="flex justify-between"><span class="text-slate-500">CPU Allocation:</span> <span class="mono text-emerald-400 font-semibold">cpu_idle = false (Always Allocated)</span></div>
-                            </div>
-                        </div>
-
-                        <!-- Specs Table -->
-                        <div class="grid grid-cols-2 gap-2.5 text-xs">
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Compute Sizing</span>
-                                <span class="font-semibold text-slate-200 mono">4 vCPU, 4 GiB RAM</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Ingress Security</span>
-                                <span class="font-semibold text-slate-200 mono">Internal Only (VPC)</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Execution Command</span>
-                                <span class="font-semibold text-indigo-400 mono">python -m asyncgw.main worker-all</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Service Account</span>
-                                <span id="infra-wk-fleet-sa" class="font-semibold text-slate-300 mono text-[11px] truncate block">asyncgw-worker-sa@...</span>
-                            </div>
+                        <!-- Card Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-worker-fleet" href="https://console.cloud.google.com/run" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 hover:text-emerald-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-server"></i> Manage Service in Cloud Run Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
                         </div>
                     </div>
 
                     <!-- Worker 2: Scheduled / Burst Primary Job -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">asyncgw-job-primary</h4>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">Job</span>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-bold text-sm text-slate-100">asyncgw-job-primary</h4>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">Job</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-0.5">Scheduled or event-driven burst worker job for primary queue backlog draining</p>
                                 </div>
-                                <p class="text-xs text-slate-400 mt-0.5">Scheduled or event-driven burst worker job for primary queue backlog draining</p>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-950 text-blue-300 border border-blue-800 mono">5 Tasks Parallel</span>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-950 text-blue-300 border border-blue-800 mono">5 Tasks Parallel</span>
+
+                            <!-- Trigger Model Box -->
+                            <div class="bg-slate-950 p-3.5 rounded-xl border border-blue-900/40 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-blue-300 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-clock text-blue-400"></i> Trigger: Cloud Scheduler / Eventarc / Manual CLI
+                                    </span>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-950/80 border border-blue-800 text-blue-400">On-Demand</span>
+                                </div>
+                                <p class="text-xs text-slate-300 leading-relaxed">
+                                    Triggered on cron schedule (e.g. <span class="mono text-indigo-300">*/5 * * * *</span>) via Cloud Scheduler, Eventarc queue threshold alert, or via <span class="mono text-indigo-300">gcloud run jobs execute asyncgw-job-primary</span>.
+                                </p>
+                                <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 space-y-1">
+                                    <div class="flex justify-between"><span class="text-slate-500">Trigger Flow:</span> <span class="text-slate-300 font-medium">Trigger signal &rarr; Spawns 5 parallel container tasks &rarr; Drains primary topic &rarr; Exits</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-500">Target Topic:</span> <span class="mono text-blue-300 font-semibold">asyncgw-requests-topic</span></div>
+                                </div>
+                            </div>
+
+                            <!-- Specs Table -->
+                            <div class="grid grid-cols-2 gap-2.5 text-xs">
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Task Sizing</span>
+                                    <span class="font-semibold text-slate-200 mono">2 vCPU, 2 GiB RAM / task</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Task Concurrency</span>
+                                    <span class="font-semibold text-slate-200 mono">task_count = 5</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Execution Command</span>
+                                    <span class="font-semibold text-indigo-400 mono">python -m asyncgw.main worker-primary</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Service Account</span>
+                                    <span id="infra-wk-pri-sa" class="font-semibold text-slate-300 mono text-[11px] truncate block">asyncgw-worker-sa@...</span>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Trigger Model Box -->
-                        <div class="bg-slate-950 p-3.5 rounded-xl border border-blue-900/40 space-y-2.5">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-blue-300 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-clock text-blue-400"></i> Trigger: Cloud Scheduler / Eventarc / Manual CLI
-                                </span>
-                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-950/80 border border-blue-800 text-blue-400">On-Demand</span>
-                            </div>
-                            <p class="text-xs text-slate-300 leading-relaxed">
-                                Triggered on cron schedule (e.g. <span class="mono text-indigo-300">*/5 * * * *</span>) via Cloud Scheduler, Eventarc queue threshold alert, or via <span class="mono text-indigo-300">gcloud run jobs execute asyncgw-job-primary</span>.
-                            </p>
-                            <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 space-y-1">
-                                <div class="flex justify-between"><span class="text-slate-500">Trigger Flow:</span> <span class="text-slate-300 font-medium">Trigger signal &rarr; Spawns 5 parallel container tasks &rarr; Drains primary topic &rarr; Exits</span></div>
-                                <div class="flex justify-between"><span class="text-slate-500">Target Topic:</span> <span class="mono text-blue-300 font-semibold">asyncgw-requests-topic</span></div>
-                            </div>
-                        </div>
-
-                        <!-- Specs Table -->
-                        <div class="grid grid-cols-2 gap-2.5 text-xs">
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Task Sizing</span>
-                                <span class="font-semibold text-slate-200 mono">2 vCPU, 2 GiB RAM / task</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Task Concurrency</span>
-                                <span class="font-semibold text-slate-200 mono">task_count = 5</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Execution Command</span>
-                                <span class="font-semibold text-indigo-400 mono">python -m asyncgw.main worker-primary</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Service Account</span>
-                                <span id="infra-wk-pri-sa" class="font-semibold text-slate-300 mono text-[11px] truncate block">asyncgw-worker-sa@...</span>
-                            </div>
+                        <!-- Card Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-job-primary" href="https://console.cloud.google.com/run/jobs" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-blue-700/60 text-blue-300 hover:text-blue-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-play"></i> Manage Job in Cloud Run Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
                         </div>
                     </div>
 
                     <!-- Worker 3: Batch Decomposed Parallel Job -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">asyncgw-job-batch</h4>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-400 border border-indigo-800">Job</span>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-bold text-sm text-slate-100">asyncgw-job-batch</h4>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-400 border border-indigo-800">Job</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-0.5">Parallel decomposed batch item worker job with automated reassembly trigger</p>
                                 </div>
-                                <p class="text-xs text-slate-400 mt-0.5">Parallel decomposed batch item worker job with automated reassembly trigger</p>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 mono">10 Tasks Parallel</span>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 mono">10 Tasks Parallel</span>
+
+                            <!-- Trigger Model Box -->
+                            <div class="bg-slate-950 p-3.5 rounded-xl border border-indigo-900/40 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-layer-group text-indigo-400"></i> Trigger: Batch Enqueue Event / Cloud Scheduler / Manual
+                                    </span>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-800 text-indigo-400">Batch Trigger</span>
+                                </div>
+                                <p class="text-xs text-slate-300 leading-relaxed">
+                                    Triggered upon batch submission events via Eventarc notification, scheduled cron intervals, or <span class="mono text-indigo-300">gcloud run jobs execute asyncgw-job-batch</span>.
+                                </p>
+                                <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 space-y-1">
+                                    <div class="flex justify-between"><span class="text-slate-500">Trigger Flow:</span> <span class="text-slate-300 font-medium">Batch decomposed &rarr; 10 parallel tasks process items &rarr; Reassembler triggers on completion</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-500">Target Topic:</span> <span class="mono text-indigo-300 font-semibold">asyncgw-batch-items-topic</span></div>
+                                </div>
+                            </div>
+
+                            <!-- Specs Table -->
+                            <div class="grid grid-cols-2 gap-2.5 text-xs">
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Task Sizing</span>
+                                    <span class="font-semibold text-slate-200 mono">2 vCPU, 2 GiB RAM / task</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Task Concurrency</span>
+                                    <span class="font-semibold text-slate-200 mono">task_count = 10</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Execution Command</span>
+                                    <span class="font-semibold text-indigo-400 mono">python -m asyncgw.main worker-batch</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Service Account</span>
+                                    <span id="infra-wk-batch-sa" class="font-semibold text-slate-300 mono text-[11px] truncate block">asyncgw-worker-sa@...</span>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Trigger Model Box -->
-                        <div class="bg-slate-950 p-3.5 rounded-xl border border-indigo-900/40 space-y-2.5">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-layer-group text-indigo-400"></i> Trigger: Batch Enqueue Event / Cloud Scheduler / Manual
-                                </span>
-                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-800 text-indigo-400">Batch Trigger</span>
-                            </div>
-                            <p class="text-xs text-slate-300 leading-relaxed">
-                                Triggered upon batch submission events via Eventarc notification, scheduled cron intervals, or <span class="mono text-indigo-300">gcloud run jobs execute asyncgw-job-batch</span>.
-                            </p>
-                            <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 space-y-1">
-                                <div class="flex justify-between"><span class="text-slate-500">Trigger Flow:</span> <span class="text-slate-300 font-medium">Batch decomposed &rarr; 10 parallel tasks process items &rarr; Reassembler triggers on completion</span></div>
-                                <div class="flex justify-between"><span class="text-slate-500">Target Topic:</span> <span class="mono text-indigo-300 font-semibold">asyncgw-batch-items-topic</span></div>
-                            </div>
-                        </div>
-
-                        <!-- Specs Table -->
-                        <div class="grid grid-cols-2 gap-2.5 text-xs">
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Task Sizing</span>
-                                <span class="font-semibold text-slate-200 mono">2 vCPU, 2 GiB RAM / task</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Task Concurrency</span>
-                                <span class="font-semibold text-slate-200 mono">task_count = 10</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Execution Command</span>
-                                <span class="font-semibold text-indigo-400 mono">python -m asyncgw.main worker-batch</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Service Account</span>
-                                <span id="infra-wk-batch-sa" class="font-semibold text-slate-300 mono text-[11px] truncate block">asyncgw-worker-sa@...</span>
-                            </div>
+                        <!-- Card Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-job-batch" href="https://console.cloud.google.com/run/jobs" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 hover:text-indigo-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-play"></i> Manage Job in Cloud Run Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
                         </div>
                     </div>
 
                     <!-- Worker 4: API Gateway & UI Service -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">asyncgw-gateway</h4>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800">Service</span>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-bold text-sm text-slate-100">asyncgw-gateway</h4>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800">Service</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-0.5">Public synchronous HTTP REST API Gateway, Swagger docs, and Web UI Dashboard</p>
                                 </div>
-                                <p class="text-xs text-slate-400 mt-0.5">Public synchronous HTTP REST API Gateway, Swagger docs, and Web UI Dashboard</p>
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-800 mono">1 &rarr; 20 instances</span>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-800 mono">1 &rarr; 20 instances</span>
+
+                            <!-- Trigger Model Box -->
+                            <div class="bg-slate-950 p-3.5 rounded-xl border border-cyan-900/40 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-globe text-cyan-400"></i> Trigger: Synchronous HTTP / HTTPS REST & UI
+                                    </span>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-800 text-cyan-400">HTTP Concurrency</span>
+                                </div>
+                                <p class="text-xs text-slate-300 leading-relaxed">
+                                    Triggered on incoming client REST calls (<span class="mono text-cyan-300">POST /v1/chat/completions</span>, <span class="mono text-cyan-300">POST /v1/batches</span>) and browser Web UI Dashboard visits.
+                                </p>
+                                <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 space-y-1">
+                                    <div class="flex justify-between"><span class="text-slate-500">Trigger Flow:</span> <span class="text-slate-300 font-medium">Client HTTP POST &rarr; Writes BQ PENDING state &rarr; Publishes to Pub/Sub &rarr; 202 Accepted</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-500">Ingress Traffic:</span> <span class="mono text-cyan-400 font-semibold">INGRESS_TRAFFIC_ALL (Public)</span></div>
+                                </div>
+                            </div>
+
+                            <!-- Specs Table -->
+                            <div class="grid grid-cols-2 gap-2.5 text-xs">
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Compute Sizing</span>
+                                    <span class="font-semibold text-slate-200 mono">2 vCPU, 2 GiB RAM</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Listening Port</span>
+                                    <span class="font-semibold text-slate-200 mono">Port 8080</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Execution Command</span>
+                                    <span class="font-semibold text-indigo-400 mono">python -m asyncgw.main gateway</span>
+                                </div>
+                                <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                                    <span class="text-slate-500 text-[11px] block">Service Account</span>
+                                    <span id="infra-gw-service-sa" class="font-semibold text-slate-300 mono text-[11px] truncate block">asyncgw-gateway-sa@...</span>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Trigger Model Box -->
-                        <div class="bg-slate-950 p-3.5 rounded-xl border border-cyan-900/40 space-y-2.5">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-globe text-cyan-400"></i> Trigger: Synchronous HTTP / HTTPS REST & UI
-                                </span>
-                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-800 text-cyan-400">HTTP Concurrency</span>
-                            </div>
-                            <p class="text-xs text-slate-300 leading-relaxed">
-                                Triggered on incoming client REST calls (<span class="mono text-cyan-300">POST /v1/chat/completions</span>, <span class="mono text-cyan-300">POST /v1/batches</span>) and browser Web UI Dashboard visits.
-                            </p>
-                            <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 space-y-1">
-                                <div class="flex justify-between"><span class="text-slate-500">Trigger Flow:</span> <span class="text-slate-300 font-medium">Client HTTP POST &rarr; Writes BQ PENDING state &rarr; Publishes to Pub/Sub &rarr; 202 Accepted</span></div>
-                                <div class="flex justify-between"><span class="text-slate-500">Ingress Traffic:</span> <span class="mono text-cyan-400 font-semibold">INGRESS_TRAFFIC_ALL (Public)</span></div>
-                            </div>
-                        </div>
-
-                        <!-- Specs Table -->
-                        <div class="grid grid-cols-2 gap-2.5 text-xs">
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Compute Sizing</span>
-                                <span class="font-semibold text-slate-200 mono">2 vCPU, 2 GiB RAM</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Listening Port</span>
-                                <span class="font-semibold text-slate-200 mono">Port 8080</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Execution Command</span>
-                                <span class="font-semibold text-indigo-400 mono">python -m asyncgw.main gateway</span>
-                            </div>
-                            <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
-                                <span class="text-slate-500 text-[11px] block">Service Account</span>
-                                <span id="infra-gw-service-sa" class="font-semibold text-slate-300 mono text-[11px] truncate block">asyncgw-gateway-sa@...</span>
-                            </div>
+                        <!-- Card Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-gateway-service" href="https://console.cloud.google.com/run" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/60 text-cyan-300 hover:text-cyan-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-server"></i> Manage Gateway in Cloud Run Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -678,132 +740,186 @@ DASHBOARD_HTML = r"""
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Pub/Sub Card -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 shadow-lg">
-                        <div class="text-blue-400 text-base font-bold flex items-center justify-between border-b border-slate-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <i class="fa-solid fa-envelope"></i> Google Cloud Pub/Sub
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="text-blue-400 text-base font-bold flex items-center justify-between border-b border-slate-800 pb-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-envelope"></i> Google Cloud Pub/Sub
+                                </div>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-950 border border-blue-800 text-blue-300">Queue Layer</span>
                             </div>
-                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-950 border border-blue-800 text-blue-300">Queue Layer</span>
+                            <ul class="text-xs space-y-2.5 text-slate-300">
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Primary Topic:</span>
+                                    <span id="infra-pubsub-req" class="mono font-semibold text-indigo-300">asyncgw-requests-topic</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Primary Subscription:</span>
+                                    <span id="infra-pubsub-req-sub" class="mono font-semibold text-emerald-400">asyncgw-requests-sub</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Batch Items Topic:</span>
+                                    <span id="infra-pubsub-batch" class="mono font-semibold text-indigo-300">asyncgw-batch-items-topic</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Batch Subscription:</span>
+                                    <span id="infra-pubsub-batch-sub" class="mono font-semibold text-emerald-400">asyncgw-batch-items-sub</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Dead Letter Queue:</span>
+                                    <span id="infra-pubsub-dlq" class="mono font-semibold text-rose-400">asyncgw-dlq-topic</span>
+                                </li>
+                                <li class="flex justify-between">
+                                    <span class="text-slate-400">Ack Deadline / Max Retries:</span>
+                                    <span class="mono font-semibold text-slate-200">60s / 5 attempts</span>
+                                </li>
+                            </ul>
                         </div>
-                        <ul class="text-xs space-y-2.5 text-slate-300">
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Primary Topic:</span>
-                                <span id="infra-pubsub-req" class="mono font-semibold text-indigo-300">asyncgw-requests-topic</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Primary Subscription:</span>
-                                <span id="infra-pubsub-req-sub" class="mono font-semibold text-emerald-400">asyncgw-requests-sub</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Batch Items Topic:</span>
-                                <span id="infra-pubsub-batch" class="mono font-semibold text-indigo-300">asyncgw-batch-items-topic</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Batch Subscription:</span>
-                                <span id="infra-pubsub-batch-sub" class="mono font-semibold text-emerald-400">asyncgw-batch-items-sub</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Dead Letter Queue:</span>
-                                <span id="infra-pubsub-dlq" class="mono font-semibold text-rose-400">asyncgw-dlq-topic</span>
-                            </li>
-                            <li class="flex justify-between">
-                                <span class="text-slate-400">Ack Deadline / Max Retries:</span>
-                                <span class="mono font-semibold text-slate-200">60s / 5 attempts</span>
-                            </li>
-                        </ul>
+
+                        <!-- Pub/Sub Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-pubsub" href="https://console.cloud.google.com/cloudpubsub" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-blue-700/60 text-blue-300 hover:text-blue-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-envelope-open-text"></i> Manage in Pub/Sub Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
+                        </div>
                     </div>
 
                     <!-- BigQuery Card -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 shadow-lg">
-                        <div class="text-emerald-400 text-base font-bold flex items-center justify-between border-b border-slate-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <i class="fa-solid fa-table"></i> Google Cloud BigQuery
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="text-emerald-400 text-base font-bold flex items-center justify-between border-b border-slate-800 pb-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-table"></i> Google Cloud BigQuery
+                                </div>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-300">State & Analytics</span>
                             </div>
-                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-300">State & Analytics</span>
+                            <ul class="text-xs space-y-2.5 text-slate-300">
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Dataset:</span>
+                                    <span id="infra-bq-dataset" class="mono font-semibold text-indigo-300">asyncgw_metrics</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Table:</span>
+                                    <span id="infra-bq-table" class="mono font-semibold text-slate-200">request_tracker</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Partitioning:</span>
+                                    <span class="mono font-semibold text-emerald-400">DATE(created_at)</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Clustering Keys:</span>
+                                    <span class="mono font-semibold text-slate-300">status, request_id</span>
+                                </li>
+                                <li class="flex justify-between">
+                                    <span class="text-slate-400">Write Model:</span>
+                                    <span class="mono font-semibold text-slate-200">Streaming & Merge Upsert</span>
+                                </li>
+                            </ul>
                         </div>
-                        <ul class="text-xs space-y-2.5 text-slate-300">
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Dataset:</span>
-                                <span id="infra-bq-dataset" class="mono font-semibold text-indigo-300">asyncgw_metrics</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Table:</span>
-                                <span id="infra-bq-table" class="mono font-semibold text-slate-200">request_tracker</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Partitioning:</span>
-                                <span class="mono font-semibold text-emerald-400">DATE(created_at)</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Clustering Keys:</span>
-                                <span class="mono font-semibold text-slate-300">status, request_id</span>
-                            </li>
-                            <li class="flex justify-between">
-                                <span class="text-slate-400">Write Model:</span>
-                                <span class="mono font-semibold text-slate-200">Streaming & Merge Upsert</span>
-                            </li>
-                        </ul>
+
+                        <!-- BigQuery Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-bigquery" href="https://console.cloud.google.com/bigquery" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 hover:text-emerald-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-chart-simple"></i> Query in BigQuery Studio <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
+                        </div>
                     </div>
 
                     <!-- GCS Card -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 shadow-lg">
-                        <div class="text-amber-400 text-base font-bold flex items-center justify-between border-b border-slate-800 pb-2">
-                            <div class="flex items-center gap-2">
-                                <i class="fa-solid fa-bucket"></i> Google Cloud Storage
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 shadow-lg flex flex-col justify-between">
+                        <div class="space-y-4">
+                            <div class="text-amber-400 text-base font-bold flex items-center justify-between border-b border-slate-800 pb-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-bucket"></i> Google Cloud Storage
+                                </div>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300">Payload Storage</span>
                             </div>
-                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300">Payload Storage</span>
+                            <ul class="text-xs space-y-2.5 text-slate-300">
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Bucket:</span>
+                                    <span id="infra-gcs-bucket" class="mono font-semibold text-amber-300">asyncgw-responses-*</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Lifecycle TTL:</span>
+                                    <span class="mono font-semibold text-emerald-400">7 Days Auto-Delete</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Responses Path:</span>
+                                    <span class="mono font-semibold text-slate-300">responses/{id}.json</span>
+                                </li>
+                                <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
+                                    <span class="text-slate-400">Batch Parts Path:</span>
+                                    <span class="mono font-semibold text-slate-300">batches/{id}/parts/</span>
+                                </li>
+                                <li class="flex justify-between">
+                                    <span class="text-slate-400">Content Type:</span>
+                                    <span class="mono font-semibold text-slate-200">application/json</span>
+                                </li>
+                            </ul>
                         </div>
-                        <ul class="text-xs space-y-2.5 text-slate-300">
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Bucket:</span>
-                                <span id="infra-gcs-bucket" class="mono font-semibold text-amber-300">asyncgw-responses-*</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Lifecycle TTL:</span>
-                                <span class="mono font-semibold text-emerald-400">7 Days Auto-Delete</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Responses Path:</span>
-                                <span class="mono font-semibold text-slate-300">responses/{id}.json</span>
-                            </li>
-                            <li class="flex justify-between border-b border-slate-800/70 pb-1.5">
-                                <span class="text-slate-400">Batch Parts Path:</span>
-                                <span class="mono font-semibold text-slate-300">batches/{id}/parts/</span>
-                            </li>
-                            <li class="flex justify-between">
-                                <span class="text-slate-400">Content Type:</span>
-                                <span class="mono font-semibold text-slate-200">application/json</span>
-                            </li>
-                        </ul>
+
+                        <!-- GCS Action Footer -->
+                        <div class="border-t border-slate-800/80 pt-3.5 flex justify-end">
+                            <a id="infra-link-storage" href="https://console.cloud.google.com/storage/browser" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-700/60 text-amber-300 hover:text-amber-200 transition inline-flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-folder-open"></i> Browse in Cloud Storage <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- SECTION 4: IAM SERVICE ACCOUNTS -->
-            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3 text-xs">
-                <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                    <h4 class="font-bold text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-shield-halved text-indigo-400"></i> IAM Security & Service Accounts
-                    </h4>
-                    <span class="text-[11px] text-slate-500 font-mono">Least-Privilege Role Model</span>
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4 text-xs shadow-lg">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                    <div>
+                        <h4 class="font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-indigo-400"></i> IAM Security & Service Accounts
+                        </h4>
+                        <span class="text-[11px] text-slate-500">Configured least-privilege service accounts and role bindings.</span>
+                    </div>
+                    <a id="infra-link-iam-overview" href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition inline-flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-key text-yellow-400"></i> IAM Service Accounts Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80">
-                        <span class="font-bold text-slate-200 block mb-1">Gateway Service Account (<span id="infra-gw-sa-card" class="mono text-indigo-300">asyncgw-gateway-sa</span>)</span>
-                        <div class="text-slate-400 text-[11px] space-y-0.5">
-                            <div>&bull; <span class="mono text-slate-300">roles/pubsub.publisher</span> &mdash; Publish incoming request envelopes</div>
-                            <div>&bull; <span class="mono text-slate-300">roles/bigquery.dataEditor</span> &mdash; Register PENDING status rows</div>
-                            <div>&bull; <span class="mono text-slate-300">roles/storage.objectAdmin</span> &mdash; Read completed responses from GCS</div>
-                            <div>&bull; <span class="mono text-slate-300">roles/artifactregistry.reader</span> &mdash; Pull container images</div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="font-bold text-slate-200 block">Gateway Service Account</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">Producer SA</span>
+                            </div>
+                            <div id="infra-gw-sa-card" class="mono text-[11px] text-indigo-300 mb-2.5 break-all select-all font-semibold">asyncgw-gateway-sa@...</div>
+                            <div class="text-slate-400 text-[11px] space-y-1">
+                                <div>&bull; <span class="mono text-slate-300">roles/pubsub.publisher</span> &mdash; Publish incoming request envelopes</div>
+                                <div>&bull; <span class="mono text-slate-300">roles/bigquery.dataEditor</span> &mdash; Register PENDING status rows</div>
+                                <div>&bull; <span class="mono text-slate-300">roles/storage.objectAdmin</span> &mdash; Read completed responses from GCS</div>
+                                <div>&bull; <span class="mono text-slate-300">roles/artifactregistry.reader</span> &mdash; Pull container images</div>
+                            </div>
+                        </div>
+                        <div class="border-t border-slate-800/80 pt-2.5 flex justify-end">
+                            <a id="infra-link-gw-sa" href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 font-semibold hover:underline">
+                                Manage SA in IAM Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
                         </div>
                     </div>
-                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80">
-                        <span class="font-bold text-slate-200 block mb-1">Worker Service Account (<span id="infra-wk-sa-card" class="mono text-indigo-300">asyncgw-worker-sa</span>)</span>
-                        <div class="text-slate-400 text-[11px] space-y-0.5">
-                            <div>&bull; <span class="mono text-slate-300">roles/pubsub.subscriber</span> &mdash; Pull and acknowledge queue envelopes</div>
-                            <div>&bull; <span class="mono text-slate-300">roles/bigquery.dataEditor</span> &mdash; Update request execution states</div>
-                            <div>&bull; <span class="mono text-slate-300">roles/storage.objectAdmin</span> &mdash; Write completed response JSON blobs</div>
-                            <div>&bull; <span class="mono text-slate-300">roles/aiplatform.user</span> &mdash; Vertex AI Provisioned Throughput & Flex inference</div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="font-bold text-slate-200 block">Worker Service Account</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">Consumer SA</span>
+                            </div>
+                            <div id="infra-wk-sa-card" class="mono text-[11px] text-indigo-300 mb-2.5 break-all select-all font-semibold">asyncgw-worker-sa@...</div>
+                            <div class="text-slate-400 text-[11px] space-y-1">
+                                <div>&bull; <span class="mono text-slate-300">roles/pubsub.subscriber</span> &mdash; Pull and acknowledge queue envelopes</div>
+                                <div>&bull; <span class="mono text-slate-300">roles/bigquery.dataEditor</span> &mdash; Update request execution states</div>
+                                <div>&bull; <span class="mono text-slate-300">roles/storage.objectAdmin</span> &mdash; Write completed response JSON blobs</div>
+                                <div>&bull; <span class="mono text-slate-300">roles/aiplatform.user</span> &mdash; Vertex AI Provisioned Throughput & Flex inference</div>
+                            </div>
+                        </div>
+                        <div class="border-t border-slate-800/80 pt-2.5 flex justify-end">
+                            <a id="infra-link-wk-sa" href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 font-semibold hover:underline">
+                                Manage SA in IAM Console <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -1512,6 +1628,7 @@ DASHBOARD_HTML = r"""
                 const proj = systemInfo.project_id || 'asyncgw-demo-project';
                 const region = systemInfo.location || systemInfo.region || 'us-central1';
                 const isLocal = (systemInfo.dev_mode !== undefined) ? systemInfo.dev_mode : (systemInfo.environment_mode === 'mock');
+                const projParam = (proj && proj !== 'asyncgw-demo-project') ? `?project=${encodeURIComponent(proj)}` : '';
 
                 // Project & Region Context
                 const projEl = document.getElementById('infra-project-id');
@@ -1524,6 +1641,11 @@ DASHBOARD_HTML = r"""
                     envEl.className = isLocal 
                         ? 'px-2.5 py-1.5 rounded-lg font-semibold bg-amber-950 text-amber-400 border border-amber-800'
                         : 'px-2.5 py-1.5 rounded-lg font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800';
+                }
+
+                const projLinkEl = document.getElementById('infra-gcp-project-link');
+                if (projLinkEl) {
+                    projLinkEl.href = `https://console.cloud.google.com/welcome${projParam}`;
                 }
 
                 // Artifact Registry
@@ -1540,14 +1662,48 @@ DASHBOARD_HTML = r"""
                 const wkImgEl = document.getElementById('infra-wk-img-uri');
                 if (wkImgEl) wkImgEl.innerText = wkImgUri;
 
+                const arConsoleUrl = `https://console.cloud.google.com/artifacts/docker/${encodeURIComponent(proj)}/${encodeURIComponent(region)}/${encodeURIComponent(arRepo)}${projParam}`;
                 const arLinkEl = document.getElementById('infra-ar-console-link');
                 if (arLinkEl) {
-                    if (isLocal || proj === 'asyncgw-demo-project') {
-                        arLinkEl.classList.add('hidden');
-                    } else {
-                        arLinkEl.classList.remove('hidden');
-                        arLinkEl.href = `https://console.cloud.google.com/artifacts/docker/${encodeURIComponent(proj)}/${encodeURIComponent(region)}/${encodeURIComponent(arRepo)}?project=${encodeURIComponent(proj)}`;
-                    }
+                    arLinkEl.href = arConsoleUrl;
+                }
+
+                const gwImgConsoleUrl = `https://console.cloud.google.com/artifacts/docker/${encodeURIComponent(proj)}/${encodeURIComponent(region)}/${encodeURIComponent(arRepo)}/asyncgw-gateway${projParam}`;
+                const gwImgLinkEl = document.getElementById('infra-link-gw-image');
+                if (gwImgLinkEl) {
+                    gwImgLinkEl.href = gwImgConsoleUrl;
+                }
+
+                const wkImgConsoleUrl = `https://console.cloud.google.com/artifacts/docker/${encodeURIComponent(proj)}/${encodeURIComponent(region)}/${encodeURIComponent(arRepo)}/asyncgw-worker${projParam}`;
+                const wkImgLinkEl = document.getElementById('infra-link-wk-image');
+                if (wkImgLinkEl) {
+                    wkImgLinkEl.href = wkImgConsoleUrl;
+                }
+
+                // Cloud Run Services & Jobs
+                const crOverviewLinkEl = document.getElementById('infra-link-cloudrun-overview');
+                if (crOverviewLinkEl) {
+                    crOverviewLinkEl.href = `https://console.cloud.google.com/run${projParam}`;
+                }
+
+                const wkFleetLinkEl = document.getElementById('infra-link-worker-fleet');
+                if (wkFleetLinkEl) {
+                    wkFleetLinkEl.href = `https://console.cloud.google.com/run/detail/${encodeURIComponent(region)}/asyncgw-worker-fleet${projParam}`;
+                }
+
+                const gwServiceLinkEl = document.getElementById('infra-link-gateway-service');
+                if (gwServiceLinkEl) {
+                    gwServiceLinkEl.href = `https://console.cloud.google.com/run/detail/${encodeURIComponent(region)}/asyncgw-gateway${projParam}`;
+                }
+
+                const jobPriLinkEl = document.getElementById('infra-link-job-primary');
+                if (jobPriLinkEl) {
+                    jobPriLinkEl.href = `https://console.cloud.google.com/run/jobs/details/${encodeURIComponent(region)}/asyncgw-job-primary${projParam}`;
+                }
+
+                const jobBatchLinkEl = document.getElementById('infra-link-job-batch');
+                if (jobBatchLinkEl) {
+                    jobBatchLinkEl.href = `https://console.cloud.google.com/run/jobs/details/${encodeURIComponent(region)}/asyncgw-job-batch${projParam}`;
                 }
 
                 // Service Accounts
@@ -1565,6 +1721,19 @@ DASHBOARD_HTML = r"""
                 if (gwSaCardEl) gwSaCardEl.innerText = gwSa;
                 const wkSaCardEl = document.getElementById('infra-wk-sa-card');
                 if (wkSaCardEl) wkSaCardEl.innerText = wkSa;
+
+                const iamOverviewLinkEl = document.getElementById('infra-link-iam-overview');
+                if (iamOverviewLinkEl) {
+                    iamOverviewLinkEl.href = `https://console.cloud.google.com/iam-admin/serviceaccounts${projParam}`;
+                }
+                const gwSaLinkEl = document.getElementById('infra-link-gw-sa');
+                if (gwSaLinkEl) {
+                    gwSaLinkEl.href = `https://console.cloud.google.com/iam-admin/serviceaccounts/details/${encodeURIComponent(gwSa)}${projParam}`;
+                }
+                const wkSaLinkEl = document.getElementById('infra-link-wk-sa');
+                if (wkSaLinkEl) {
+                    wkSaLinkEl.href = `https://console.cloud.google.com/iam-admin/serviceaccounts/details/${encodeURIComponent(wkSa)}${projParam}`;
+                }
 
                 // Data Persistence & Queues
                 const reqTopic = systemInfo.pubsub_topic_requests || 'asyncgw-requests-topic';
@@ -1584,8 +1753,11 @@ DASHBOARD_HTML = r"""
                 if (pubsubBatchSubEl) pubsubBatchSubEl.innerText = batchSub;
                 const pubsubDlqEl = document.getElementById('infra-pubsub-dlq');
                 if (pubsubDlqEl) pubsubDlqEl.innerText = dlqTopic;
-                const pubsubDlqSubEl = document.getElementById('infra-pubsub-dlq-sub');
-                if (pubsubDlqSubEl) pubsubDlqSubEl.innerText = dlqSub;
+
+                const pubsubLinkEl = document.getElementById('infra-link-pubsub');
+                if (pubsubLinkEl) {
+                    pubsubLinkEl.href = `https://console.cloud.google.com/cloudpubsub/topic/list${projParam}`;
+                }
 
                 const bqDataset = systemInfo.bq_dataset || 'asyncgw_metrics';
                 const bqTable = systemInfo.bq_table || 'request_tracker';
@@ -1594,9 +1766,19 @@ DASHBOARD_HTML = r"""
                 const bqTableEl = document.getElementById('infra-bq-table');
                 if (bqTableEl) bqTableEl.innerText = `${proj}.${bqDataset}.${bqTable}`;
 
+                const bqLinkEl = document.getElementById('infra-link-bigquery');
+                if (bqLinkEl) {
+                    bqLinkEl.href = `https://console.cloud.google.com/bigquery${projParam}&ws=!1m5!1m4!4m3!1s${encodeURIComponent(proj)}!2s${encodeURIComponent(bqDataset)}!3s${encodeURIComponent(bqTable)}`;
+                }
+
                 const gcsBucket = systemInfo.gcs_bucket_name || 'asyncgw-responses-storage';
                 const gcsEl = document.getElementById('infra-gcs-bucket');
                 if (gcsEl) gcsEl.innerText = `gs://${gcsBucket}`;
+
+                const storageLinkEl = document.getElementById('infra-link-storage');
+                if (storageLinkEl) {
+                    storageLinkEl.href = `https://console.cloud.google.com/storage/browser/${encodeURIComponent(gcsBucket)}${projParam}`;
+                }
             } catch (e) {
                 console.error('Error loading infrastructure view', e);
             }

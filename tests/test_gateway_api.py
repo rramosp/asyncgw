@@ -434,3 +434,17 @@ async def test_ui_dashboard_rendered_content(app_and_client):
         assert "Trigger: Cloud Scheduler / Eventarc / Manual" in html
         assert "asyncgw-job-batch" in html
         assert "Trigger: Batch Enqueue Event / Cloud Scheduler / Manual" in html
+
+        # Verify GCP Console management links on each card
+        assert "infra-ar-console-link" in html
+        assert "infra-link-gw-image" in html
+        assert "infra-link-wk-image" in html
+        assert "infra-link-worker-fleet" in html
+        assert "infra-link-job-primary" in html
+        assert "infra-link-job-batch" in html
+        assert "infra-link-gateway-service" in html
+        assert "infra-link-pubsub" in html
+        assert "infra-link-bigquery" in html
+        assert "infra-link-storage" in html
+        assert "infra-link-gw-sa" in html
+        assert "infra-link-wk-sa" in html
