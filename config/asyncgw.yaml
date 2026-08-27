@@ -1,0 +1,6 @@
+# General Configuration for Asynchronous Gateway
+asyncgw:
+  # Maximum number of batch result items returned directly in the batch results API response.
+  # If the batch contains more items, clients can use the results_uri to download the full payload.
+  max_batch_items_in_api: 100
+

@@ -1,0 +1,110 @@
+# Configuration of LLM Backend Services for Asynchronous Gateway
+backends:
+  - id: "gcp-provisioned-gemini"
+    name: "GCP Provisioned Throughput (Vertex AI Gemini)"
+    description: "Dedicated Provisioned Throughput endpoint on Vertex AI for high-throughput batch and online workloads"
+    endpoint_url: "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models"
+    auth:
+      type: "google_adc"
+      audience: "https://aiplatform.googleapis.com/"
+    capabilities:
+      supports_online: true
+      supports_batch: true
+      max_batch_size: 10000
+      concurrency_limit: 100
+    health_check:
+      endpoint_url: "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/endpoints"
+      method: "GET"
+      interval_seconds: 30
+      timeout_seconds: 5
+      expected_status: 200
+      max_consecutive_failures: 3
+    supported_models:
+      - "gemini-2.0-flash"
+      - "gemini-1.5-pro"
+      - "gemini-1.5-flash"
+      - "text-embedding-004"
+    cost_tier: "low"
+    priority_weight: 100
+
+  - id: "gemini-flex"
+    name: "Vertex AI Gemini Pay-as-you-go (FLEX)"
+    description: "Standard Vertex AI Gemini on-demand endpoints for overflow and fallback"
+    endpoint_url: "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models"
+    auth:
+      type: "google_adc"
+      audience: "https://aiplatform.googleapis.com/"
+    capabilities:
+      supports_online: true
+      supports_batch: false # Flex endpoint processed via individual queries
+      max_batch_size: 1
+      concurrency_limit: 50
+    health_check:
+      endpoint_url: "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models/gemini-1.5-flash"
+      method: "GET"
+      interval_seconds: 30
+      timeout_seconds: 5
+      expected_status: 200
+      max_consecutive_failures: 3
+    supported_models:
+      - "gemini-2.0-flash"
+      - "gemini-1.5-pro"
+      - "gemini-1.5-flash"
+    cost_tier: "medium"
+    priority_weight: 70
+
+  - id: "openai-direct"
+    name: "OpenAI Direct API"
+    description: "Direct OpenAI API endpoint with batch and online capabilities"
+    endpoint_url: "https://api.openai.com/v1"
+    auth:
+      type: "api_key"
+      secret_env: "OPENAI_API_KEY"
+      header_name: "Authorization"
+      header_prefix: "Bearer "
+    capabilities:
+      supports_online: true
+      supports_batch: true
+      max_batch_size: 50000
+      concurrency_limit: 40
+    health_check:
+      endpoint_url: "https://api.openai.com/v1/models"
+      method: "GET"
+      interval_seconds: 60
+      timeout_seconds: 5
+      expected_status: 200
+      max_consecutive_failures: 3
+    supported_models:
+      - "gpt-4o"
+      - "gpt-4o-mini"
+      - "o1"
+      - "o3-mini"
+      - "text-embedding-3-small"
+      - "text-embedding-3-large"
+    cost_tier: "high"
+    priority_weight: 40
+
+  - id: "mock-high-capacity"
+    name: "Internal Mock Backend (Testing & Simulation)"
+    description: "Mock endpoint for stress testing, failover testing, and offline evaluation"
+    endpoint_url: "mock://internal/v1"
+    auth:
+      type: "none"
+    capabilities:
+      supports_online: true
+      supports_batch: false # Breaks down batches into sub-requests for test coverage
+      max_batch_size: 1
+      concurrency_limit: 1000
+    health_check:
+      endpoint_url: "mock://internal/health"
+      method: "GET"
+      interval_seconds: 10
+      timeout_seconds: 2
+      expected_status: 200
+      max_consecutive_failures: 2
+    supported_models:
+      - "mock-model-v1"
+      - "gemini-2.0-flash"
+      - "gpt-4o"
+    cost_tier: "low"
+    priority_weight: 90

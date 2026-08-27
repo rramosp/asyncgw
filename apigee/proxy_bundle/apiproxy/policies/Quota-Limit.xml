@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Quota async="false" continueOnError="false" enabled="true" name="Quota-Limit" type="calendar">
+    <DisplayName>Rate Limiting Quota</DisplayName>
+    <Properties/>
+    <Allow count="1000" countRef="verifyapikey.Verify-API-Key.client_quota"/>
+    <Interval>1</Interval>
+    <TimeUnit>minute</TimeUnit>
+    <Distributed>true</Distributed>
+    <Synchronous>false</Synchronous>
+</Quota>

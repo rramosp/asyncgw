@@ -1,0 +1,11 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', '$_GATEWAY_IMAGE', '-f', 'Dockerfile.gateway', '.']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', '$_WORKER_IMAGE', '-f', 'Dockerfile.worker', '.']
+images:
+- '$_GATEWAY_IMAGE'
+- '$_WORKER_IMAGE'
+substitutions:
+  _GATEWAY_IMAGE: 'gcr.io/$PROJECT_ID/asyncgw-gateway:latest'
+  _WORKER_IMAGE: 'gcr.io/$PROJECT_ID/asyncgw-worker:latest'

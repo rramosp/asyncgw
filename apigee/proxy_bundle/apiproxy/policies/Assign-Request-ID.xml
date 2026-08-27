@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="Assign-Request-ID">
+    <DisplayName>Assign Request ID</DisplayName>
+    <AssignVariable>
+        <Name>client.request.id</Name>
+        <Ref>messageid</Ref>
+    </AssignVariable>
+    <Set>
+        <Headers>
+            <Header name="X-Gateway-Request-ID">{messageid}</Header>
+            <Header name="X-Gateway-Timestamp">{system.timestamp}</Header>
+        </Headers>
+    </Set>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+    <AssignTo createNew="false" transport="http" type="request"/>
+</AssignMessage>

@@ -1,0 +1,14 @@
+# Example Terraform Variables for Async Gateway
+project_id         = "your-gcp-project-id"
+region             = "us-central1"
+environment        = "prod"
+bq_dataset_id      = "asyncgw_metrics"
+bq_table_id        = "request_tracker"
+gcs_bucket_name    = "asyncgw-responses-storage"
+gcs_retention_days = 7
+
+container_image_gateway = "gcr.io/your-gcp-project-id/asyncgw-gateway:latest"
+container_image_worker  = "gcr.io/your-gcp-project-id/asyncgw-worker:latest"
+
+worker_min_instances = 1
+worker_max_instances = 50

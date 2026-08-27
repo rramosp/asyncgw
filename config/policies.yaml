@@ -1,0 +1,67 @@
+# Routing and Failover Policies for Asynchronous Gateway
+policies:
+  default_policy: "cost_optimized_with_failover"
+
+  routing_strategies:
+    - id: "cost_optimized_with_failover"
+      name: "Cost Optimized with Automatic Failover"
+      description: "Prefers Provisioned Throughput for maximum cost efficiency, falling back to Gemini Flex and OpenAI Direct on saturation or error"
+      preference_order:
+        - "gcp-provisioned-gemini"
+        - "gemini-flex"
+        - "openai-direct"
+        - "mock-high-capacity"
+      failover:
+        enabled: true
+        max_retries_per_backend: 2
+        retry_delay_seconds: 1.0
+        backoff_multiplier: 2.0
+        failover_on_statuses: [400, 401, 403, 404, 408, 429, 500, 502, 503, 504, "TIMEOUT", "HEALTH_CHECK_FAILED"]
+
+    - id: "latency_sensitive"
+      name: "Low Latency Online Fast-Track"
+      description: "Directs low-latency interactive requests to fastest available backend"
+      preference_order:
+        - "gemini-flex"
+        - "gcp-provisioned-gemini"
+        - "openai-direct"
+      failover:
+        enabled: true
+        max_retries_per_backend: 1
+        failover_on_statuses: [400, 401, 403, 404, 408, 429, 500, 502, 503, 504, "TIMEOUT"]
+
+    - id: "batch_bulk_throughput"
+      name: "Batch Bulk Throughput"
+      description: "Optimized for large bulk batch requests, prioritizing bulk-capable backends"
+      preference_order:
+        - "gcp-provisioned-gemini"
+        - "openai-direct"
+        - "gemini-flex"
+      failover:
+        enabled: true
+        max_retries_per_backend: 2
+
+  content_rules:
+    - name: "large_payload_provisioned_rule"
+      condition:
+        min_estimated_tokens: 8000
+      target_backend: "gcp-provisioned-gemini"
+      fallback_policy: "cost_optimized_with_failover"
+
+    - name: "short_deadline_rule"
+      condition:
+        max_wait_seconds_under: 30
+      target_policy: "latency_sensitive"
+
+    - name: "model_family_routing"
+      model_mappings:
+        "gpt-4.*": "openai-direct"
+        "o1.*": "openai-direct"
+        "o3.*": "openai-direct"
+        "gemini-.*": "gcp-provisioned-gemini"
+        "mock-.*": "mock-high-capacity"
+
+  global_timeouts:
+    default_max_wait_seconds: 3600 # 1 hour default
+    absolute_max_wait_seconds: 86400 # 24 hours ceiling
+    min_wait_seconds: 5
