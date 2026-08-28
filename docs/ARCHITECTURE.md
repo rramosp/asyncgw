@@ -72,9 +72,9 @@ graph TD
     PrimaryWorker -->|Save Single Response JSON| GCS
     PrimaryWorker -->|Mark Single COMPLETED| BigQuery
 
-    Client -.->|Poll Status GET /v1/requests/{id}| Apigee
+    Client -.->|"Poll Status GET /v1/requests/{id}"| Apigee
     Apigee -.-> BigQuery
-    Client -.->|Fetch Response GET /v1/requests/{id}/response| Apigee
+    Client -.->|"Fetch Response GET /v1/requests/{id}/response"| Apigee
     Apigee -.-> GCS
 ```
 
