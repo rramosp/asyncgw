@@ -69,10 +69,28 @@ class PrimaryRequestWorker:
     async def _handle_single_request(self, envelope: AsyncRequestEnvelope) -> None:
         # Route and execute with failover
         decision = self.routing_engine.route_request(envelope)
+        strat_obj = self.routing_engine.strategies_map.get(decision.strategy_id)
+        strategy_name = strat_obj.name if strat_obj else decision.strategy_id
+        init_policy_info = {
+            "strategy_id": decision.strategy_id,
+            "strategy_name": strategy_name,
+            "selection_reason": decision.reason,
+            "preference_order": [b.id for b in decision.all_candidate_backends],
+        }
+        init_metadata = {
+            **(envelope.tags or {}),
+            "routing_policy": init_policy_info,
+            "strategy_id": decision.strategy_id,
+            "selection_reason": decision.reason,
+            "backends_tried": [],
+            "failover_trace": [],
+        }
+
         await self.request_tracker.mark_processing(
             request_id=envelope.request_id,
             backend_service_id=decision.primary_backend.id,
             backend_endpoint=decision.primary_backend.endpoint_url,
+            metadata=init_metadata,
         )
 
         async def _call_backend(client: BaseLLMBackend, cfg: BackendConfig) -> BackendExecutionResult:
@@ -81,6 +99,12 @@ class PrimaryRequestWorker:
         result, served_backend = await self.routing_engine.execute_with_failover(
             envelope, _call_backend
         )
+
+        routing_meta = getattr(result, "routing_metadata", {}) or {}
+        final_metadata = {
+            **(envelope.tags or {}),
+            **routing_meta,
+        }
 
         gcs_path = f"responses/{envelope.request_id}.json"
 
@@ -100,6 +124,7 @@ class PrimaryRequestWorker:
                 backend_service_id=served_backend.id,
                 content_tokens=result.content_tokens,
                 backend_batch_service_mode=None,
+                metadata=final_metadata,
             )
             logger.info(
                 f"Successfully completed request {envelope.request_id} via {served_backend.id} in {result.elapsed_seconds:.2f}s"
@@ -119,6 +144,7 @@ class PrimaryRequestWorker:
                 await self.request_tracker.mark_timed_out(
                     request_id=envelope.request_id,
                     error_message=result.error_message or "Request timed out",
+                    metadata=final_metadata,
                 )
             else:
                 error_payload = {
@@ -137,6 +163,7 @@ class PrimaryRequestWorker:
                     elapsed_seconds=result.elapsed_seconds,
                     backend_service_id=served_backend.id,
                     backend_batch_service_mode=None,
+                    metadata=final_metadata,
                 )
             logger.warning(
                 f"Request {envelope.request_id} failed with code {result.status_code}: {result.error_message}"
@@ -144,6 +171,23 @@ class PrimaryRequestWorker:
 
     async def _handle_batch_request(self, envelope: AsyncRequestEnvelope) -> None:
         decision = self.routing_engine.route_request(envelope)
+        strat_obj = self.routing_engine.strategies_map.get(decision.strategy_id)
+        strategy_name = strat_obj.name if strat_obj else decision.strategy_id
+        init_policy_info = {
+            "strategy_id": decision.strategy_id,
+            "strategy_name": strategy_name,
+            "selection_reason": decision.reason,
+            "preference_order": [b.id for b in decision.all_candidate_backends],
+        }
+        init_metadata = {
+            **(envelope.tags or {}),
+            "routing_policy": init_policy_info,
+            "strategy_id": decision.strategy_id,
+            "selection_reason": decision.reason,
+            "backends_tried": [],
+            "failover_trace": [],
+        }
+
         logger.info(
             f"Batch request {envelope.request_id} routing strategy: {decision.strategy_id} "
             f"(requires breakdown: {decision.requires_batch_breakdown})"
@@ -153,6 +197,7 @@ class PrimaryRequestWorker:
             request_id=envelope.request_id,
             backend_service_id=decision.primary_backend.id,
             backend_endpoint=decision.primary_backend.endpoint_url,
+            metadata=init_metadata,
         )
 
         if decision.requires_batch_breakdown:
@@ -165,6 +210,7 @@ class PrimaryRequestWorker:
                     error_message="Empty batch or invalid batch payload",
                     backend_service_id=decision.primary_backend.id,
                     backend_batch_service_mode="decomposed",
+                    metadata=init_metadata,
                 )
         else:
             # Backend supports native bulk batch execution
@@ -176,6 +222,12 @@ class PrimaryRequestWorker:
             result, served_backend = await self.routing_engine.execute_with_failover(
                 envelope, _call_batch_backend
             )
+
+            routing_meta = getattr(result, "routing_metadata", {}) or {}
+            final_metadata = {
+                **(envelope.tags or {}),
+                **routing_meta,
+            }
 
             gcs_path = f"responses/{envelope.request_id}.json"
             if result.success:
@@ -192,6 +244,7 @@ class PrimaryRequestWorker:
                     elapsed_seconds=result.elapsed_seconds,
                     backend_service_id=served_backend.id,
                     backend_batch_service_mode="native",
+                    metadata=final_metadata,
                 )
             else:
                 error_payload = {
@@ -211,4 +264,5 @@ class PrimaryRequestWorker:
                     elapsed_seconds=result.elapsed_seconds,
                     backend_service_id=served_backend.id,
                     backend_batch_service_mode="native",
+                    metadata=final_metadata,
                 )

@@ -33,7 +33,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
     def _get_client(self):
         if self._client is None:
             from google.cloud import bigquery
-            self._client = bigquery.Client(project=self.project_id)
+            self._client = bigquery.Client(project=self.project_id, location=self.settings.location)
         return self._client
 
     async def initialize(self) -> None:
@@ -182,6 +182,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
         backend_service_id: str,
         backend_endpoint: Optional[str] = None,
         sequence_number: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
@@ -194,6 +195,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
             "started_at": now_iso,
             "backend_service_id": backend_service_id,
             "backend_endpoint": backend_endpoint or "",
+            "metadata_json": json.dumps(metadata) if metadata is not None else None,
         }
         await self._insert_rows([row])
 
@@ -208,6 +210,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
         content_tokens: Optional[int] = None,
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
@@ -225,6 +228,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
             "backend_service_id": backend_service_id,
             "backend_batch_service_mode": backend_batch_service_mode or "",
             "content_tokens": content_tokens or 0,
+            "metadata_json": json.dumps(metadata) if metadata is not None else None,
         }
         await self._insert_rows([row])
 
@@ -237,6 +241,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
         backend_service_id: Optional[str] = None,
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
@@ -252,6 +257,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
             "elapsed_seconds": elapsed_seconds or 0.0,
             "backend_service_id": backend_service_id or "",
             "backend_batch_service_mode": backend_batch_service_mode or "",
+            "metadata_json": json.dumps(metadata) if metadata is not None else None,
         }
         await self._insert_rows([row])
 
@@ -260,6 +266,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
         request_id: str,
         error_message: str = "Request exceeded user-specified maximum wait time",
         sequence_number: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
@@ -271,6 +278,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
             "created_at": now_iso,
             "completed_at": now_iso,
             "error_message": error_message,
+            "metadata_json": json.dumps(metadata) if metadata is not None else None,
         }
         await self._insert_rows([row])
 
@@ -312,7 +320,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
                 MAX(error_message) as error_message,
                 MAX(retry_count) as retry_count,
                 MAX(content_tokens) as content_tokens,
-                MAX(metadata_json) as metadata_json
+                ARRAY_AGG(metadata_json IGNORE NULLS ORDER BY created_at DESC LIMIT 1)[OFFSET(0)] as metadata_json
             FROM `{self.full_table_id}`
             WHERE request_id = @req_id {seq_clause}
             GROUP BY request_id
@@ -363,7 +371,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
                 MAX(error_message) as error_message,
                 MAX(retry_count) as retry_count,
                 MAX(content_tokens) as content_tokens,
-                MAX(metadata_json) as metadata_json
+                ARRAY_AGG(metadata_json IGNORE NULLS ORDER BY created_at DESC LIMIT 1)[OFFSET(0)] as metadata_json
             FROM `{self.full_table_id}`
             WHERE parent_request_id = @parent_id
             GROUP BY request_id
@@ -412,7 +420,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
                     MAX(error_message) as error_message,
                     MAX(retry_count) as retry_count,
                     MAX(content_tokens) as content_tokens,
-                    MAX(metadata_json) as metadata_json
+                    ARRAY_AGG(metadata_json IGNORE NULLS ORDER BY created_at DESC LIMIT 1)[OFFSET(0)] as metadata_json
                 FROM `{self.full_table_id}`
                 WHERE sequence_number IS NULL
                 GROUP BY request_id
@@ -475,7 +483,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
                     bigquery.ScalarQueryParameter(name, type_, val) for name, type_, val in params
                 ]
             )
-            client.query(query, job_config=job_config).result()
+            client.query(query, job_config=job_config, location=self.settings.location).result()
         await asyncio.to_thread(_sync)
 
     async def _run_query_fetch(self, query: str, params: List[tuple]) -> List[Dict[str, Any]]:
@@ -487,6 +495,6 @@ class BigQueryRequestTracker(BaseRequestTracker):
                     bigquery.ScalarQueryParameter(name, type_, val) for name, type_, val in params
                 ]
             )
-            job = client.query(query, job_config=job_config)
+            job = client.query(query, job_config=job_config, location=self.settings.location)
             return [dict(row) for row in job.result()]
         return await asyncio.to_thread(_sync)

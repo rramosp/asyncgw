@@ -95,6 +95,7 @@ class InMemoryRequestTracker(BaseRequestTracker):
         backend_service_id: str,
         backend_endpoint: Optional[str] = None,
         sequence_number: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         async with self._lock:
             key = self._get_key(request_id, sequence_number)
@@ -103,6 +104,15 @@ class InMemoryRequestTracker(BaseRequestTracker):
                 self.records[key]["started_at"] = datetime.now(timezone.utc)
                 self.records[key]["backend_service_id"] = backend_service_id
                 self.records[key]["backend_endpoint"] = backend_endpoint
+                if metadata is not None:
+                    existing = {}
+                    if self.records[key].get("metadata_json"):
+                        try:
+                            existing = json.loads(self.records[key]["metadata_json"])
+                        except Exception:
+                            pass
+                    existing.update(metadata)
+                    self.records[key]["metadata_json"] = json.dumps(existing)
 
     async def mark_completed(
         self,
@@ -115,6 +125,7 @@ class InMemoryRequestTracker(BaseRequestTracker):
         content_tokens: Optional[int] = None,
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         async with self._lock:
             key = self._get_key(request_id, sequence_number)
@@ -129,6 +140,15 @@ class InMemoryRequestTracker(BaseRequestTracker):
                 self.records[key]["content_tokens"] = content_tokens or 0
                 if backend_batch_service_mode is not None:
                     self.records[key]["backend_batch_service_mode"] = backend_batch_service_mode
+                if metadata is not None:
+                    existing = {}
+                    if self.records[key].get("metadata_json"):
+                        try:
+                            existing = json.loads(self.records[key]["metadata_json"])
+                        except Exception:
+                            pass
+                    existing.update(metadata)
+                    self.records[key]["metadata_json"] = json.dumps(existing)
 
     async def mark_failed(
         self,
@@ -139,6 +159,7 @@ class InMemoryRequestTracker(BaseRequestTracker):
         backend_service_id: Optional[str] = None,
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         async with self._lock:
             key = self._get_key(request_id, sequence_number)
@@ -152,12 +173,22 @@ class InMemoryRequestTracker(BaseRequestTracker):
                     self.records[key]["backend_service_id"] = backend_service_id
                 if backend_batch_service_mode is not None:
                     self.records[key]["backend_batch_service_mode"] = backend_batch_service_mode
+                if metadata is not None:
+                    existing = {}
+                    if self.records[key].get("metadata_json"):
+                        try:
+                            existing = json.loads(self.records[key]["metadata_json"])
+                        except Exception:
+                            pass
+                    existing.update(metadata)
+                    self.records[key]["metadata_json"] = json.dumps(existing)
 
     async def mark_timed_out(
         self,
         request_id: str,
         error_message: str = "Request exceeded user-specified maximum wait time",
         sequence_number: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         async with self._lock:
             key = self._get_key(request_id, sequence_number)
@@ -165,6 +196,15 @@ class InMemoryRequestTracker(BaseRequestTracker):
                 self.records[key]["status"] = RequestStatusEnum.TIMED_OUT.value
                 self.records[key]["completed_at"] = datetime.now(timezone.utc)
                 self.records[key]["error_message"] = error_message
+                if metadata is not None:
+                    existing = {}
+                    if self.records[key].get("metadata_json"):
+                        try:
+                            existing = json.loads(self.records[key]["metadata_json"])
+                        except Exception:
+                            pass
+                    existing.update(metadata)
+                    self.records[key]["metadata_json"] = json.dumps(existing)
 
     async def get_request_status(
         self, request_id: str, sequence_number: Optional[int] = None

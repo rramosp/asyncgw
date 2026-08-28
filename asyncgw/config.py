@@ -149,13 +149,19 @@ class GatewaySettings(BaseModel):
         default_factory=lambda: os.getenv("PUBSUB_TOPIC_REQUESTS", "asyncgw-requests-topic")
     )
     pubsub_subscription_requests: str = Field(
-        default_factory=lambda: os.getenv("PUBSUB_SUB_REQUESTS", "asyncgw-requests-sub")
+        default_factory=lambda: os.getenv(
+            "PUBSUB_SUB_REQUESTS",
+            os.getenv("PUBSUB_SUBSCRIPTION_REQUESTS", "asyncgw-requests-topic-sub")
+        )
     )
     pubsub_topic_batch_items: str = Field(
         default_factory=lambda: os.getenv("PUBSUB_TOPIC_BATCH_ITEMS", "asyncgw-batch-items-topic")
     )
     pubsub_subscription_batch_items: str = Field(
-        default_factory=lambda: os.getenv("PUBSUB_SUB_BATCH_ITEMS", "asyncgw-batch-items-sub")
+        default_factory=lambda: os.getenv(
+            "PUBSUB_SUB_BATCH_ITEMS",
+            os.getenv("PUBSUB_SUBSCRIPTION_BATCH_ITEMS", "asyncgw-batch-items-topic-sub")
+        )
     )
     pubsub_dlq_topic: str = Field(
         default_factory=lambda: os.getenv("PUBSUB_DLQ_TOPIC", "asyncgw-dlq-topic")

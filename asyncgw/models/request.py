@@ -46,7 +46,7 @@ class ChatCompletionRequest(BaseModel):
         default=None, description="Maximum wait time in seconds before expiring request"
     )
     priority: Optional[str] = Field(default="normal", description="Priority tier: low, normal, high")
-    tags: Optional[Dict[str, str]] = Field(default_factory=dict)
+    tags: Optional[Dict[str, Any]] = Field(default_factory=dict)
     routing_override: Optional[str] = Field(
         default=None, description="Direct target backend override if allowed"
     )
@@ -62,7 +62,7 @@ class CompletionRequest(BaseModel):
     stop: Optional[Union[str, List[str]]] = None
     max_wait_seconds: Optional[int] = None
     priority: Optional[str] = "normal"
-    tags: Optional[Dict[str, str]] = Field(default_factory=dict)
+    tags: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class EmbeddingRequest(BaseModel):
@@ -92,7 +92,7 @@ class BatchRequest(BaseModel):
     completion_window: Optional[str] = Field(
         default="24h", description="Time frame in which the batch should be processed"
     )
-    metadata: Optional[Dict[str, str]] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
     requests: Optional[List[BatchItem]] = Field(
         default=None, description="Inline list of batch requests for direct submission"
     )
@@ -120,7 +120,7 @@ class AsyncRequestEnvelope(BaseModel):
 
     client_id: Optional[str] = None
     priority: str = "normal"
-    tags: Dict[str, str] = Field(default_factory=dict)
+    tags: Dict[str, Any] = Field(default_factory=dict)
     routing_strategy: Optional[str] = None
     target_backend: Optional[str] = None
 

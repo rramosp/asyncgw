@@ -63,11 +63,29 @@ class BatchSubRequestWorker:
 
         # 2. Mark PROCESSING
         decision = self.routing_engine.route_request(envelope)
+        strat_obj = self.routing_engine.strategies_map.get(decision.strategy_id)
+        strategy_name = strat_obj.name if strat_obj else decision.strategy_id
+        init_policy_info = {
+            "strategy_id": decision.strategy_id,
+            "strategy_name": strategy_name,
+            "selection_reason": decision.reason,
+            "preference_order": [b.id for b in decision.all_candidate_backends],
+        }
+        init_metadata = {
+            **(envelope.tags or {}),
+            "routing_policy": init_policy_info,
+            "strategy_id": decision.strategy_id,
+            "selection_reason": decision.reason,
+            "backends_tried": [],
+            "failover_trace": [],
+        }
+
         await self.request_tracker.mark_processing(
             request_id=envelope.request_id,
             backend_service_id=decision.primary_backend.id,
             backend_endpoint=decision.primary_backend.endpoint_url,
             sequence_number=seq,
+            metadata=init_metadata,
         )
 
         # 3. Execute with failover
@@ -77,6 +95,12 @@ class BatchSubRequestWorker:
         result, served_backend = await self.routing_engine.execute_with_failover(
             envelope, _call_backend
         )
+
+        routing_meta = getattr(result, "routing_metadata", {}) or {}
+        final_metadata = {
+            **(envelope.tags or {}),
+            **routing_meta,
+        }
 
         # 4. Save partial part and update sub-request status
         if result.success:
@@ -97,6 +121,7 @@ class BatchSubRequestWorker:
                 backend_service_id=served_backend.id,
                 content_tokens=result.content_tokens,
                 sequence_number=seq,
+                metadata=final_metadata,
             )
             logger.info(f"Sub-request {envelope.request_id} (seq {seq}) completed via {served_backend.id}")
         else:
@@ -116,6 +141,7 @@ class BatchSubRequestWorker:
                 elapsed_seconds=result.elapsed_seconds,
                 backend_service_id=served_backend.id,
                 sequence_number=seq,
+                metadata=final_metadata,
             )
             logger.warning(f"Sub-request {envelope.request_id} (seq {seq}) failed: {result.error_message}")
 

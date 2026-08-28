@@ -6,8 +6,10 @@ from datetime import datetime, timezone
 import logging
 import os
 import sys
+from typing import Optional
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 import uvicorn
 
 from asyncgw.backends.base import BaseLLMBackend
@@ -38,6 +40,118 @@ logging.basicConfig(
 logger = logging.getLogger("asyncgw")
 
 
+class WorkerFleetManager:
+    """Persistent lifecycle manager for background workers and queue consumers."""
+
+    def __init__(self, settings: GatewaySettings, mode: str = "worker-all"):
+        self.settings = settings
+        self.mode = mode
+        self.request_tracker = None
+        self.blob_storage = None
+        self.queue_producer = None
+        self.queue_consumer = None
+        self.routing_engine = None
+        self.batch_splitter = None
+        self.batch_reassembler = None
+        self.primary_worker = None
+        self.batch_worker = None
+        self.is_running = False
+        self.last_error: Optional[str] = None
+
+    async def initialize(self):
+        logger.info(
+            f"Initializing WorkerFleet (Mode: {self.mode}, Env: {self.settings.environment_mode}, Project: {self.settings.project_id})..."
+        )
+        backends = load_backends_config(self.settings.backends_config_path)
+        policies = load_policies_config(self.settings.policies_config_path)
+
+        self.request_tracker = (
+            BigQueryRequestTracker(self.settings)
+            if self.settings.environment_mode == "gcp"
+            else InMemoryRequestTracker()
+        )
+        self.blob_storage = (
+            GCSBlobStorage(self.settings)
+            if self.settings.environment_mode == "gcp"
+            else InMemoryBlobStorage(bucket_name=self.settings.gcs_bucket_name)
+        )
+        self.queue_producer = (
+            PubSubQueueProducer(self.settings)
+            if self.settings.environment_mode == "gcp"
+            else InMemoryQueueProducer()
+        )
+        self.queue_consumer = (
+            PubSubQueueConsumer(self.settings)
+            if self.settings.environment_mode == "gcp"
+            else InMemoryQueueConsumer()
+        )
+
+        await self.request_tracker.initialize()
+        await self.blob_storage.initialize()
+        await self.queue_producer.initialize()
+        await self.queue_consumer.initialize()
+
+        backend_clients = {}
+        for b in backends:
+            if b.endpoint_url.startswith("mock://") or self.settings.environment_mode == "mock":
+                backend_clients[b.id] = MockBackend(b)
+            elif "openai.com" in b.endpoint_url:
+                backend_clients[b.id] = OpenAIBackend(b)
+            elif "provisioned" in b.id.lower():
+                backend_clients[b.id] = GCPProvisionedBackend(b)
+            else:
+                backend_clients[b.id] = GeminiFlexBackend(b)
+
+        health_monitor = HealthMonitor(backends)
+        self.routing_engine = RoutingEngine(backends, policies, health_monitor, backend_clients)
+        self.batch_splitter = BatchSplitter(
+            self.request_tracker, self.blob_storage, self.queue_producer
+        )
+        self.batch_reassembler = BatchReassembler(self.request_tracker, self.blob_storage)
+
+        self.primary_worker = PrimaryRequestWorker(
+            request_tracker=self.request_tracker,
+            blob_storage=self.blob_storage,
+            routing_engine=self.routing_engine,
+            batch_splitter=self.batch_splitter,
+        )
+        self.batch_worker = BatchSubRequestWorker(
+            request_tracker=self.request_tracker,
+            blob_storage=self.blob_storage,
+            routing_engine=self.routing_engine,
+            batch_reassembler=self.batch_reassembler,
+        )
+
+    async def start(self):
+        try:
+            await self.initialize()
+
+            if self.mode in ["worker-primary", "worker-all"]:
+                logger.info(
+                    f"Starting Primary Request Worker listening on subscription '{self.settings.pubsub_subscription_requests}'..."
+                )
+                await self.queue_consumer.consume_requests(self.primary_worker.process_envelope)
+
+            if self.mode in ["worker-batch", "worker-all"]:
+                logger.info(
+                    f"Starting Batch Sub-Request Worker listening on subscription '{self.settings.pubsub_subscription_batch_items}'..."
+                )
+                await self.queue_consumer.consume_batch_items(self.batch_worker.process_sub_request)
+
+            self.is_running = True
+            logger.info(f"WorkerFleetManager started successfully and is actively listening (Mode: {self.mode}).")
+        except Exception as e:
+            self.last_error = str(e)
+            logger.error(f"Failed to start WorkerFleetManager: {e}", exc_info=True)
+            raise
+
+    async def stop(self):
+        self.is_running = False
+        if self.queue_consumer:
+            await self.queue_consumer.stop()
+        logger.info("WorkerFleetManager stopped.")
+
+
 def run_gateway():
     """Run the FastAPI Gateway server with integrated Web UI and in-memory background workers."""
     settings = GatewaySettings()
@@ -46,137 +160,70 @@ def run_gateway():
 
     # In local mock mode, auto-start in-memory workers so queued requests are processed
     if settings.environment_mode == "mock" and isinstance(getattr(app.state, "queue_consumer", None), InMemoryQueueConsumer):
+        fleet = WorkerFleetManager(settings, mode="worker-all")
+        app.state.local_fleet = fleet
+
         @app.on_event("startup")
         async def _start_local_workers():
-            primary_worker = PrimaryRequestWorker(
+            fleet.request_tracker = app.state.request_tracker
+            fleet.blob_storage = app.state.blob_storage
+            fleet.queue_producer = app.state.queue_producer
+            fleet.queue_consumer = app.state.queue_consumer
+            fleet.routing_engine = app.state.routing_engine
+            fleet.batch_splitter = app.state.batch_splitter
+            fleet.batch_reassembler = app.state.batch_reassembler
+
+            fleet.primary_worker = PrimaryRequestWorker(
                 request_tracker=app.state.request_tracker,
                 blob_storage=app.state.blob_storage,
                 routing_engine=app.state.routing_engine,
                 batch_splitter=app.state.batch_splitter,
             )
-            batch_worker = BatchSubRequestWorker(
+            fleet.batch_worker = BatchSubRequestWorker(
                 request_tracker=app.state.request_tracker,
                 blob_storage=app.state.blob_storage,
                 routing_engine=app.state.routing_engine,
                 batch_reassembler=app.state.batch_reassembler,
             )
-            await app.state.queue_consumer.consume_requests(primary_worker.process_envelope)
-            await app.state.queue_consumer.consume_batch_items(batch_worker.process_sub_request)
-            logger.info("Local background in-memory worker fleet started automatically.")
+            await app.state.queue_consumer.consume_requests(fleet.primary_worker.process_envelope)
+            await app.state.queue_consumer.consume_batch_items(fleet.batch_worker.process_sub_request)
+            fleet.is_running = True
+            logger.info("Local in-memory background worker fleet started automatically.")
 
     uvicorn.run(app, host=settings.api_host, port=settings.api_port)
-
-
-async def _run_primary_worker_async():
-    settings = GatewaySettings()
-    logger.info(f"Starting Primary Request Worker for topic {settings.pubsub_topic_requests}...")
-
-    backends = load_backends_config(settings.backends_config_path)
-    policies = load_policies_config(settings.policies_config_path)
-
-    request_tracker = BigQueryRequestTracker(settings) if settings.environment_mode == "gcp" else InMemoryRequestTracker()
-    blob_storage = GCSBlobStorage(settings) if settings.environment_mode == "gcp" else InMemoryBlobStorage(bucket_name=settings.gcs_bucket_name)
-    queue_producer = PubSubQueueProducer(settings) if settings.environment_mode == "gcp" else InMemoryQueueProducer()
-    queue_consumer = PubSubQueueConsumer(settings) if settings.environment_mode == "gcp" else InMemoryQueueConsumer()
-
-    await request_tracker.initialize()
-    await blob_storage.initialize()
-    await queue_producer.initialize()
-    await queue_consumer.initialize()
-
-    backend_clients = {}
-    for b in backends:
-        if b.endpoint_url.startswith("mock://") or settings.environment_mode == "mock":
-            backend_clients[b.id] = MockBackend(b)
-        elif "openai.com" in b.endpoint_url:
-            backend_clients[b.id] = OpenAIBackend(b)
-        elif "provisioned" in b.id.lower():
-            backend_clients[b.id] = GCPProvisionedBackend(b)
-        else:
-            backend_clients[b.id] = GeminiFlexBackend(b)
-
-    health_monitor = HealthMonitor(backends)
-    routing_engine = RoutingEngine(backends, policies, health_monitor, backend_clients)
-    batch_splitter = BatchSplitter(request_tracker, blob_storage, queue_producer)
-
-    worker = PrimaryRequestWorker(
-        request_tracker=request_tracker,
-        blob_storage=blob_storage,
-        routing_engine=routing_engine,
-        batch_splitter=batch_splitter,
-    )
-
-    await queue_consumer.consume_requests(worker.process_envelope)
-    logger.info("Primary Request Worker is actively listening for requests.")
-
-
-async def _run_batch_worker_async():
-    settings = GatewaySettings()
-    logger.info(f"Starting Batch Sub-Request Worker for topic {settings.pubsub_topic_batch_items}...")
-
-    backends = load_backends_config(settings.backends_config_path)
-    policies = load_policies_config(settings.policies_config_path)
-
-    request_tracker = BigQueryRequestTracker(settings) if settings.environment_mode == "gcp" else InMemoryRequestTracker()
-    blob_storage = GCSBlobStorage(settings) if settings.environment_mode == "gcp" else InMemoryBlobStorage(bucket_name=settings.gcs_bucket_name)
-    queue_consumer = PubSubQueueConsumer(settings) if settings.environment_mode == "gcp" else InMemoryQueueConsumer()
-
-    await request_tracker.initialize()
-    await blob_storage.initialize()
-    await queue_consumer.initialize()
-
-    backend_clients = {}
-    for b in backends:
-        if b.endpoint_url.startswith("mock://") or settings.environment_mode == "mock":
-            backend_clients[b.id] = MockBackend(b)
-        elif "openai.com" in b.endpoint_url:
-            backend_clients[b.id] = OpenAIBackend(b)
-        elif "provisioned" in b.id.lower():
-            backend_clients[b.id] = GCPProvisionedBackend(b)
-        else:
-            backend_clients[b.id] = GeminiFlexBackend(b)
-
-    health_monitor = HealthMonitor(backends)
-    routing_engine = RoutingEngine(backends, policies, health_monitor, backend_clients)
-    batch_reassembler = BatchReassembler(request_tracker, blob_storage)
-
-    worker = BatchSubRequestWorker(
-        request_tracker=request_tracker,
-        blob_storage=blob_storage,
-        routing_engine=routing_engine,
-        batch_reassembler=batch_reassembler,
-    )
-
-    await queue_consumer.consume_batch_items(worker.process_sub_request)
-    logger.info("Batch Sub-Request Worker is actively listening for sub-requests.")
-
-
-async def _run_all_workers_async():
-    await _run_primary_worker_async()
-    await _run_batch_worker_async()
 
 
 def run_worker_service(mode: str = "worker-all"):
     """Run continuous worker service with an integrated HTTP health probe server for Cloud Run."""
     settings = GatewaySettings()
     app = FastAPI(title=f"AsyncGW Worker ({mode})", docs_url=None, redoc_url=None)
+    fleet = WorkerFleetManager(settings, mode=mode)
+    app.state.fleet = fleet
 
     @app.on_event("startup")
     async def _start_workers():
-        if mode in ["worker-primary", "worker-all"]:
-            await _run_primary_worker_async()
-        if mode in ["worker-batch", "worker-all"]:
-            await _run_batch_worker_async()
-        logger.info(f"Background worker processes initialized and listening for '{mode}'.")
+        try:
+            await fleet.start()
+        except Exception as e:
+            logger.error(f"Error during worker startup: {e}")
+
+    @app.on_event("shutdown")
+    async def _stop_workers():
+        try:
+            await fleet.stop()
+        except Exception as e:
+            logger.warning(f"Error during worker shutdown: {e}")
 
     @app.get("/healthz")
     @app.get("/")
     async def health():
         return {
-            "status": "healthy",
+            "status": "healthy" if fleet.is_running else ("error" if fleet.last_error else "initializing"),
             "service": f"asyncgw-{mode}",
             "environment_mode": settings.environment_mode,
             "project_id": settings.project_id,
+            "is_running": fleet.is_running,
+            "error": fleet.last_error,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 

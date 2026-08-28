@@ -225,6 +225,27 @@ class RoutingEngine:
         candidates = decision.all_candidate_backends
         failover_cfg = decision.failover_config
 
+        strat_obj = self.strategies_map.get(decision.strategy_id)
+        strategy_name = strat_obj.name if strat_obj else decision.strategy_id
+
+        policy_info = {
+            "strategy_id": decision.strategy_id,
+            "strategy_name": strategy_name,
+            "selection_reason": decision.reason,
+            "preference_order": [b.id for b in candidates],
+        }
+
+        backends_tried: List[Dict[str, Any]] = []
+
+        def _attach_trace(target_result: BackendExecutionResult) -> None:
+            target_result.routing_metadata = {
+                "routing_policy": policy_info,
+                "strategy_id": decision.strategy_id,
+                "selection_reason": decision.reason,
+                "backends_tried": backends_tried,
+                "failover_trace": backends_tried,
+            }
+
         last_result: Optional[BackendExecutionResult] = None
         last_backend_cfg = candidates[0]
 
@@ -232,6 +253,15 @@ class RoutingEngine:
             client = self.backend_clients.get(backend_cfg.id)
             if not client:
                 logger.warning(f"No backend client registered for {backend_cfg.id}; skipping.")
+                backends_tried.append({
+                    "backend_service_id": backend_cfg.id,
+                    "backend_name": backend_cfg.name,
+                    "attempt": 0,
+                    "status_code": 503,
+                    "success": False,
+                    "error": "No backend client registered",
+                    "reason": f"Skipped '{backend_cfg.id}': no backend client registered. Falling back to next candidate according to policy '{decision.strategy_id}'.",
+                })
                 continue
 
             max_retries = failover_cfg.max_retries_per_backend if failover_cfg.enabled else 1
@@ -240,11 +270,23 @@ class RoutingEngine:
             for attempt in range(max_retries):
                 # Check envelope deadline before each attempt
                 if envelope.is_expired():
-                    return BackendExecutionResult(
+                    reason = f"Request exceeded maximum wait deadline ({envelope.max_wait_seconds}s) before/during call on '{backend_cfg.id}'."
+                    backends_tried.append({
+                        "backend_service_id": backend_cfg.id,
+                        "backend_name": backend_cfg.name,
+                        "attempt": attempt + 1,
+                        "status_code": 408,
+                        "success": False,
+                        "error": f"Request expired (max wait {envelope.max_wait_seconds}s)",
+                        "reason": reason,
+                    })
+                    res = BackendExecutionResult(
                         success=False,
                         status_code=408,
                         error_message=f"Request expired before/during backend call (max wait {envelope.max_wait_seconds}s)",
-                    ), backend_cfg
+                    )
+                    _attach_trace(res)
+                    return res, backend_cfg
 
                 try:
                     result: BackendExecutionResult = await execute_fn(client, backend_cfg)
@@ -260,10 +302,40 @@ class RoutingEngine:
                     )
 
                     if result.success:
+                        backends_tried.append({
+                            "backend_service_id": backend_cfg.id,
+                            "backend_name": backend_cfg.name,
+                            "attempt": attempt + 1,
+                            "status_code": result.status_code,
+                            "success": True,
+                            "error": None,
+                            "reason": f"Request served successfully by '{backend_cfg.id}'.",
+                        })
+                        _attach_trace(result)
                         return result, backend_cfg
 
+                    err_msg = result.error_message or f"Backend returned status {result.status_code}"
                     # Check if status code warrants retry / failover
                     if result.status_code in failover_cfg.failover_on_statuses or "TIMEOUT" in str(result.error_message):
+                        if attempt < max_retries - 1:
+                            reason = (
+                                f"Attempt {attempt + 1}/{max_retries} failed on '{backend_cfg.id}' with status {result.status_code}: {err_msg}. "
+                                f"Retrying with backoff ({delay}s) according to policy '{decision.strategy_id}'."
+                            )
+                        else:
+                            reason = (
+                                f"Exhausted {max_retries} attempt(s) on '{backend_cfg.id}' with status {result.status_code}: {err_msg}. "
+                                f"Failing over to next candidate backend according to policy '{decision.strategy_id}'."
+                            )
+                        backends_tried.append({
+                            "backend_service_id": backend_cfg.id,
+                            "backend_name": backend_cfg.name,
+                            "attempt": attempt + 1,
+                            "status_code": result.status_code,
+                            "success": False,
+                            "error": err_msg,
+                            "reason": reason,
+                        })
                         logger.warning(
                             f"Backend {backend_cfg.id} attempt {attempt + 1}/{max_retries} failed with "
                             f"status {result.status_code}. Retrying or failing over..."
@@ -273,19 +345,52 @@ class RoutingEngine:
                             delay *= failover_cfg.backoff_multiplier
                     else:
                         # Non-retryable client error (e.g. 400 Bad Request, 401 Unauthorized)
+                        reason = (
+                            f"Backend '{backend_cfg.id}' returned status {result.status_code} ({err_msg}) which is not configured for retry/failover in policy '{decision.strategy_id}'. Halting failover."
+                        )
+                        backends_tried.append({
+                            "backend_service_id": backend_cfg.id,
+                            "backend_name": backend_cfg.name,
+                            "attempt": attempt + 1,
+                            "status_code": result.status_code,
+                            "success": False,
+                            "error": err_msg,
+                            "reason": reason,
+                        })
+                        _attach_trace(result)
                         return result, backend_cfg
 
                 except Exception as e:
+                    err_msg = str(e)
                     logger.error(f"Exception calling backend {backend_cfg.id}: {e}")
                     self.health_monitor.record_execution_outcome(
-                        backend_cfg.id, success=False, status_code=500, error=str(e)
+                        backend_cfg.id, success=False, status_code=500, error=err_msg
                     )
                     last_result = BackendExecutionResult(
                         success=False,
                         status_code=500,
-                        error_message=f"Exception during backend call: {str(e)}",
+                        error_message=f"Exception during backend call: {err_msg}",
                     )
                     last_backend_cfg = backend_cfg
+                    if attempt < max_retries - 1:
+                        reason = (
+                            f"Attempt {attempt + 1}/{max_retries} encountered exception on '{backend_cfg.id}': {err_msg}. "
+                            f"Retrying with backoff ({delay}s) according to policy '{decision.strategy_id}'."
+                        )
+                    else:
+                        reason = (
+                            f"Exhausted {max_retries} attempt(s) with exception on '{backend_cfg.id}': {err_msg}. "
+                            f"Failing over to next candidate backend according to policy '{decision.strategy_id}'."
+                        )
+                    backends_tried.append({
+                        "backend_service_id": backend_cfg.id,
+                        "backend_name": backend_cfg.name,
+                        "attempt": attempt + 1,
+                        "status_code": 500,
+                        "success": False,
+                        "error": err_msg,
+                        "reason": reason,
+                    })
                     if attempt < max_retries - 1:
                         await asyncio.sleep(delay)
                         delay *= failover_cfg.backoff_multiplier
@@ -300,4 +405,5 @@ class RoutingEngine:
                 status_code=503,
                 error_message="All configured backends failed or were unavailable",
             )
+        _attach_trace(last_result)
         return last_result, last_backend_cfg

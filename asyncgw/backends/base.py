@@ -19,6 +19,7 @@ class BackendExecutionResult:
         content_length: int = 0,
         content_tokens: Optional[int] = None,
         raw_headers: Optional[Dict[str, str]] = None,
+        routing_metadata: Optional[Dict[str, Any]] = None,
     ):
         self.success = success
         self.status_code = status_code
@@ -28,6 +29,7 @@ class BackendExecutionResult:
         self.content_length = content_length
         self.content_tokens = content_tokens
         self.raw_headers = raw_headers or {}
+        self.routing_metadata = routing_metadata or {}
 
 
 class BaseLLMBackend(ABC):

@@ -4,7 +4,7 @@ import asyncio
 from datetime import timedelta
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from asyncgw.config import GatewaySettings
 from asyncgw.storage.base import BaseBlobStorage
@@ -38,7 +38,6 @@ class GCSBlobStorage(BaseBlobStorage):
                 bucket = client.get_bucket(self.bucket_name)
                 logger.info(f"GCS bucket {self.bucket_name} exists.")
 
-                # Apply 7-day lifecycle retention rule if not already present
                 rules = list(bucket.lifecycle_rules)
                 has_age_rule = any(
                     rule.get("action", {}).get("type") == "Delete" and rule.get("condition", {}).get("age") == self.retention_days
@@ -49,43 +48,52 @@ class GCSBlobStorage(BaseBlobStorage):
                     bucket.patch()
                     logger.info(f"Configured {self.retention_days}-day delete lifecycle rule on {self.bucket_name}")
             except Exception as be:
-                logger.info(f"GCS bucket {self.bucket_name} bucket-level management skipped ({be}); object operations will proceed.")
+                logger.info(f"GCS bucket {self.bucket_name} bucket-level management note ({be}); object operations will proceed.")
 
         except Exception as e:
             logger.warning(f"GCS bucket initialization check note: {e}")
 
-    def _normalize_blob_path(self, path_or_uri: str) -> str:
-        """Extract blob name from gs://bucket_name/blob_path or return raw path."""
-        prefix = f"gs://{self.bucket_name}/"
-        if path_or_uri.startswith(prefix):
-            return path_or_uri[len(prefix):]
+    def _parse_bucket_and_blob(self, path_or_uri: str) -> Tuple[str, str]:
+        """Extract (bucket_name, blob_name) from gs://bucket_name/blob_path or relative path."""
         if path_or_uri.startswith("gs://"):
-            parts = path_or_uri.replace("gs://", "").split("/", 1)
+            parts = path_or_uri[5:].split("/", 1)
             if len(parts) == 2:
-                return parts[1]
-        return path_or_uri.lstrip("/")
+                return parts[0], parts[1]
+            return parts[0], ""
+        return self.bucket_name, path_or_uri.lstrip("/")
+
+    async def exists(self, path_or_uri: str) -> bool:
+        b_name, blob_path = self._parse_bucket_and_blob(path_or_uri)
+
+        def _sync_exists():
+            client = self._get_client()
+            bucket = client.bucket(b_name)
+            blob = bucket.blob(blob_path)
+            return blob.exists()
+
+        return await asyncio.to_thread(_sync_exists)
 
     async def save_json(
         self, path: str, data: Dict[str, Any], content_type: str = "application/json"
     ) -> str:
-        blob_path = self._normalize_blob_path(path)
+        b_name, blob_path = self._parse_bucket_and_blob(path)
         content = json.dumps(data, indent=2)
 
         def _sync_upload():
             client = self._get_client()
-            bucket = client.bucket(self.bucket_name)
+            bucket = client.bucket(b_name)
             blob = bucket.blob(blob_path)
             blob.upload_from_string(content, content_type=content_type)
-            return f"gs://{self.bucket_name}/{blob_path}"
+            return f"gs://{b_name}/{blob_path}"
 
         return await asyncio.to_thread(_sync_upload)
 
     async def get_json(self, path_or_uri: str) -> Dict[str, Any]:
-        blob_path = self._normalize_blob_path(path_or_uri)
+        b_name, blob_path = self._parse_bucket_and_blob(path_or_uri)
 
         def _sync_download():
             client = self._get_client()
-            bucket = client.bucket(self.bucket_name)
+            bucket = client.bucket(b_name)
             blob = bucket.blob(blob_path)
             content = blob.download_as_text()
             return json.loads(content)
@@ -93,41 +101,47 @@ class GCSBlobStorage(BaseBlobStorage):
         return await asyncio.to_thread(_sync_download)
 
     async def save_jsonl(self, path: str, lines: List[Dict[str, Any]]) -> str:
-        blob_path = self._normalize_blob_path(path)
+        b_name, blob_path = self._parse_bucket_and_blob(path)
         content = "\n".join(json.dumps(line) for line in lines) + "\n"
 
         def _sync_upload():
             client = self._get_client()
-            bucket = client.bucket(self.bucket_name)
+            bucket = client.bucket(b_name)
             blob = bucket.blob(blob_path)
             blob.upload_from_string(content, content_type="application/x-ndjson")
-            return f"gs://{self.bucket_name}/{blob_path}"
+            return f"gs://{b_name}/{blob_path}"
 
         return await asyncio.to_thread(_sync_upload)
 
     async def get_jsonl(self, path_or_uri: str) -> List[Dict[str, Any]]:
-        blob_path = self._normalize_blob_path(path_or_uri)
+        b_name, blob_path = self._parse_bucket_and_blob(path_or_uri)
 
         def _sync_download():
             client = self._get_client()
-            bucket = client.bucket(self.bucket_name)
+            bucket = client.bucket(b_name)
             blob = bucket.blob(blob_path)
             content = blob.download_as_text()
-            results = []
-            for line in content.strip().split("\n"):
-                if line.strip():
-                    results.append(json.loads(line.strip()))
-            return results
+            return [json.loads(line) for line in content.strip().split("\n") if line.strip()]
 
         return await asyncio.to_thread(_sync_download)
 
-    async def exists(self, path_or_uri: str) -> bool:
-        blob_path = self._normalize_blob_path(path_or_uri)
+    async def generate_signed_url(
+        self, path_or_uri: str, expiration_minutes: int = 60
+    ) -> Optional[str]:
+        b_name, blob_path = self._parse_bucket_and_blob(path_or_uri)
 
-        def _sync_exists():
+        def _sync_sign():
             client = self._get_client()
-            bucket = client.bucket(self.bucket_name)
+            bucket = client.bucket(b_name)
             blob = bucket.blob(blob_path)
-            return blob.exists()
+            return blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(minutes=expiration_minutes),
+                method="GET",
+            )
 
-        return await asyncio.to_thread(_sync_exists)
+        try:
+            return await asyncio.to_thread(_sync_sign)
+        except Exception as e:
+            logger.warning(f"Could not generate GCS signed URL: {e}")
+            return None

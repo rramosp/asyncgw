@@ -75,6 +75,8 @@ resource "google_cloud_run_v2_service" "gateway" {
   }
 }
 
+
+
 # 2. Continuous Worker Service for Auto-Scaling Primary and Batch Processing
 resource "google_cloud_run_v2_service" "worker_service" {
   deletion_protection = false

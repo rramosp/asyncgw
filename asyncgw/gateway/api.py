@@ -203,6 +203,23 @@ def create_app(
             target_backend=req.routing_override or x_routing_override,
         )
 
+        decision = app.state.routing_engine.route_request(envelope)
+        strat_obj = app.state.routing_engine.strategies_map.get(decision.strategy_id)
+        strategy_name = strat_obj.name if strat_obj else decision.strategy_id
+        envelope.tags = {
+            **(req.tags or {}),
+            "routing_policy": {
+                "strategy_id": decision.strategy_id,
+                "strategy_name": strategy_name,
+                "selection_reason": decision.reason,
+                "preference_order": [b.id for b in decision.all_candidate_backends],
+            },
+            "strategy_id": decision.strategy_id,
+            "selection_reason": decision.reason,
+            "backends_tried": [],
+            "failover_trace": [],
+        }
+
         # 1. Register in BigQuery with PENDING status
         await app.state.request_tracker.register_request(envelope)
 
@@ -250,6 +267,23 @@ def create_app(
             priority=req.priority or "normal",
             tags=req.tags or {},
         )
+
+        decision = app.state.routing_engine.route_request(envelope)
+        strat_obj = app.state.routing_engine.strategies_map.get(decision.strategy_id)
+        strategy_name = strat_obj.name if strat_obj else decision.strategy_id
+        envelope.tags = {
+            **(req.tags or {}),
+            "routing_policy": {
+                "strategy_id": decision.strategy_id,
+                "strategy_name": strategy_name,
+                "selection_reason": decision.reason,
+                "preference_order": [b.id for b in decision.all_candidate_backends],
+            },
+            "strategy_id": decision.strategy_id,
+            "selection_reason": decision.reason,
+            "backends_tried": [],
+            "failover_trace": [],
+        }
 
         await app.state.request_tracker.register_request(envelope)
         await app.state.queue_producer.publish_request(envelope)
@@ -340,6 +374,23 @@ def create_app(
             raw_input_gcs_uri=req.input_file_id,
             tags=req.metadata or {},
         )
+
+        decision = app.state.routing_engine.route_request(envelope)
+        strat_obj = app.state.routing_engine.strategies_map.get(decision.strategy_id)
+        strategy_name = strat_obj.name if strat_obj else decision.strategy_id
+        envelope.tags = {
+            **(req.metadata or {}),
+            "routing_policy": {
+                "strategy_id": decision.strategy_id,
+                "strategy_name": strategy_name,
+                "selection_reason": decision.reason,
+                "preference_order": [b.id for b in decision.all_candidate_backends],
+            },
+            "strategy_id": decision.strategy_id,
+            "selection_reason": decision.reason,
+            "backends_tried": [],
+            "failover_trace": [],
+        }
 
         await app.state.request_tracker.register_request(envelope)
         await app.state.queue_producer.publish_request(envelope)

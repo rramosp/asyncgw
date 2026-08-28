@@ -33,6 +33,7 @@ class BaseRequestTracker(ABC):
         backend_service_id: str,
         backend_endpoint: Optional[str] = None,
         sequence_number: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Mark request as PROCESSING."""
         pass
@@ -49,6 +50,7 @@ class BaseRequestTracker(ABC):
         content_tokens: Optional[int] = None,
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Mark request as COMPLETED."""
         pass
@@ -63,6 +65,7 @@ class BaseRequestTracker(ABC):
         backend_service_id: Optional[str] = None,
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Mark request as FAILED."""
         pass
@@ -73,6 +76,7 @@ class BaseRequestTracker(ABC):
         request_id: str,
         error_message: str = "Request exceeded user-specified maximum wait time",
         sequence_number: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Mark request as TIMED_OUT."""
         pass

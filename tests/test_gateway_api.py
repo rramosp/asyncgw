@@ -448,3 +448,78 @@ async def test_ui_dashboard_rendered_content(app_and_client):
         assert "infra-link-storage" in html
         assert "infra-link-gw-sa" in html
         assert "infra-link-wk-sa" in html
+
+
+@pytest.mark.asyncio
+async def test_get_request_status_metadata_policy_and_backends_tried(app_and_client):
+    from asyncgw.batch.splitter import BatchSplitter
+    from asyncgw.workers.primary_worker import PrimaryRequestWorker
+    from asyncgw.models.request import AsyncRequestEnvelope, RequestType
+
+    app, client, tracker, storage, producer, consumer, q1, q2, q3 = app_and_client
+    backend_clients = app.state.backend_clients
+    routing_engine = app.state.routing_engine
+
+    # Configure primary backend to fail with 500
+    backend_clients["gcp-provisioned-gemini"].configure_failure(status_code=500, message="Out of capacity", count=5)
+
+    # 1. Submit request via API
+    payload = {
+        "model": "gemini-2.0-flash",
+        "messages": [{"role": "user", "content": "Explain metadata"}],
+        "tags": {"user_id": "alice_123"},
+    }
+    res = await client.post("/v1/chat/completions", json=payload)
+    assert res.status_code == 202
+    req_id = res.json()["request_id"]
+
+    # 2. Check pending status has initial policy info
+    status_pending = await client.get(f"/v1/requests/{req_id}")
+    assert status_pending.status_code == 200
+    pending_data = status_pending.json()
+    assert pending_data["status"] == "PENDING"
+    assert "routing_policy" in pending_data["metadata"]
+    assert pending_data["metadata"]["user_id"] == "alice_123"
+
+    # 3. Simulate worker processing with failover
+    splitter = BatchSplitter(tracker, storage, producer)
+    worker = PrimaryRequestWorker(tracker, storage, routing_engine, splitter)
+
+    # Dequeue envelope from q1
+    envelope = await q1.get()
+    await worker.process_envelope(envelope)
+
+    # 4. Check completed status via API endpoint
+    status_res = await client.get(f"/v1/requests/{req_id}")
+    assert status_res.status_code == 200
+    data = status_res.json()
+
+    assert data["status"] == "COMPLETED"
+    assert data["backend_service_id"] == "gemini-flex"
+
+    # Verify policy & strategy info in metadata
+    meta = data["metadata"]
+    assert "routing_policy" in meta
+    assert meta["routing_policy"]["strategy_id"] == "cost_optimized_with_failover"
+    assert "gcp-provisioned-gemini" in meta["routing_policy"]["preference_order"]
+    assert "gemini-flex" in meta["routing_policy"]["preference_order"]
+
+    # Verify backends tried and failover reasons
+    assert "backends_tried" in meta
+    attempts = meta["backends_tried"]
+    assert len(attempts) >= 2
+
+    first_attempt = attempts[0]
+    assert first_attempt["backend_service_id"] == "gcp-provisioned-gemini"
+    assert first_attempt["status_code"] == 500
+    assert first_attempt["success"] is False
+    assert "Out of capacity" in first_attempt["error"]
+    assert "cost_optimized_with_failover" in first_attempt["reason"] or "policy" in first_attempt["reason"]
+
+    last_attempt = attempts[-1]
+    assert last_attempt["backend_service_id"] == "gemini-flex"
+    assert last_attempt["status_code"] == 200
+    assert last_attempt["success"] is True
+
+    # User tags preserved
+    assert meta["user_id"] == "alice_123"
