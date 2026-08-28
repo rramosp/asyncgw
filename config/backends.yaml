@@ -3,7 +3,7 @@ backends:
   - id: "gcp-provisioned-gemini"
     name: "GCP Provisioned Throughput (Vertex AI Gemini)"
     description: "Dedicated Provisioned Throughput endpoint on Vertex AI for high-throughput batch and online workloads"
-    endpoint_url: "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models"
+    endpoint_url: "https://aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/global/publishers/google/models"
     auth:
       type: "google_adc"
       audience: "https://aiplatform.googleapis.com/"
@@ -20,17 +20,15 @@ backends:
       expected_status: 200
       max_consecutive_failures: 3
     supported_models:
-      - "gemini-2.0-flash"
-      - "gemini-1.5-pro"
-      - "gemini-1.5-flash"
-      - "text-embedding-004"
+      - "gemini-3.5-flash-lite"
+      - "gemini-3.6-flash"
     cost_tier: "low"
     priority_weight: 100
 
   - id: "gemini-flex"
     name: "Vertex AI Gemini Pay-as-you-go (FLEX)"
     description: "Standard Vertex AI Gemini on-demand endpoints for overflow and fallback"
-    endpoint_url: "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models"
+    endpoint_url: "https://aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/global/publishers/google/models"
     auth:
       type: "google_adc"
       audience: "https://aiplatform.googleapis.com/"
@@ -40,16 +38,15 @@ backends:
       max_batch_size: 1
       concurrency_limit: 50
     health_check:
-      endpoint_url: "https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models/gemini-1.5-flash"
+      endpoint_url: "https://aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/global/publishers/google/models/gemini-1.5-flash"
       method: "GET"
       interval_seconds: 30
       timeout_seconds: 5
       expected_status: 200
       max_consecutive_failures: 3
     supported_models:
-      - "gemini-2.0-flash"
-      - "gemini-1.5-pro"
-      - "gemini-1.5-flash"
+      - "gemini-3.5-flash-lite"
+      - "gemini-3.6-flash"
     cost_tier: "medium"
     priority_weight: 70
 
@@ -104,7 +101,7 @@ backends:
       max_consecutive_failures: 2
     supported_models:
       - "mock-model-v1"
-      - "gemini-2.0-flash"
-      - "gpt-4o"
+      - "gemini-3.5-flash-lite"
+      - "gemini-3.6-flash"
     cost_tier: "low"
     priority_weight: 90

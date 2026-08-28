@@ -176,7 +176,7 @@ class GCPProvisionedBackend(BaseLLMBackend):
                     return BackendExecutionResult(
                         success=False,
                         status_code=res.status_code,
-                        error_message=f"Vertex AI Provisioned Error ({res.status_code}): {res.text[:500]}",
+                        error_message=f"{self.config.name} Error ({res.status_code}): {res.text[:500]}",
                         elapsed_seconds=elapsed,
                     )
         except Exception as e:

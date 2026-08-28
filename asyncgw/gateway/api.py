@@ -27,6 +27,7 @@ from asyncgw.config import (
     load_backends_config,
     load_policies_config,
     save_backends_config,
+    save_policies_config,
 )
 from asyncgw.models.request import (
     AsyncRequestEnvelope,
@@ -53,6 +54,36 @@ from asyncgw.storage.memory_mock import InMemoryBlobStorage, InMemoryRequestTrac
 
 logger = logging.getLogger(__name__)
 
+
+
+
+async def _sync_config_to_storage(
+    blob_storage: Optional[BaseBlobStorage],
+    backends: Optional[List[BackendConfig]] = None,
+    policies: Optional[PoliciesConfig] = None,
+) -> None:
+    """Sync backend and policy configurations to blob storage for distributed worker fleets."""
+    if blob_storage is None:
+        return
+    try:
+        import time
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if backends is not None:
+            await blob_storage.save_json(
+                "system/config/backends.json",
+                {"backends": [b.model_dump(exclude_none=True) for b in backends], "updated_at": now_iso},
+            )
+        if policies is not None:
+            await blob_storage.save_json(
+                "system/config/policies.json",
+                {"policies": policies.model_dump(exclude_none=True), "updated_at": now_iso},
+            )
+        await blob_storage.save_json(
+            "system/config/version.json",
+            {"version": time.time(), "updated_at": now_iso},
+        )
+    except Exception as e:
+        logger.error(f"Failed to sync config to blob storage: {e}", exc_info=True)
 
 
 def create_backend_client(b_cfg: BackendConfig, environment_mode: str = "mock") -> BaseLLMBackend:
@@ -156,6 +187,33 @@ def create_app(
             await app.state.request_tracker.initialize()
             await app.state.blob_storage.initialize()
             await app.state.queue_producer.initialize()
+
+            # Load persistent config from blob storage if present
+            try:
+                if await app.state.blob_storage.exists("system/config/backends.json"):
+                    b_data = await app.state.blob_storage.get_json("system/config/backends.json")
+                    if "backends" in b_data and isinstance(b_data["backends"], list):
+                        app.state.backends = [BackendConfig(**b) for b in b_data["backends"]]
+                        app.state.backend_clients = {
+                            b.id: create_backend_client(b, app.state.settings.environment_mode)
+                            for b in app.state.backends
+                        }
+                        app.state.health_monitor.update_backends(app.state.backends)
+                        app.state.routing_engine.update_config(
+                            app.state.backends, app.state.policies, app.state.backend_clients
+                        )
+                        logger.info(f"Loaded {len(app.state.backends)} backends from storage on startup.")
+                if await app.state.blob_storage.exists("system/config/policies.json"):
+                    p_data = await app.state.blob_storage.get_json("system/config/policies.json")
+                    if "policies" in p_data and isinstance(p_data["policies"], dict):
+                        app.state.policies = PoliciesConfig(**p_data["policies"])
+                        app.state.routing_engine.update_config(
+                            app.state.backends, app.state.policies, app.state.backend_clients
+                        )
+                        logger.info("Loaded policies from storage on startup.")
+            except Exception as se:
+                logger.warning(f"Note on loading initial config from storage: {se}")
+
             logger.info("Async Gateway components initialized successfully.")
         except Exception as e:
             logger.warning(f"Storage/queue initialization encountered warning: {e}")
@@ -785,6 +843,8 @@ def create_app(
         except Exception as e:
             logger.warning(f"Failed to persist backends configuration: {e}")
 
+        await _sync_config_to_storage(app.state.blob_storage, backends=app.state.backends)
+
         return {
             "message": f"Backend '{backend_in.id}' registered successfully",
             "backend": backend_in.model_dump(),
@@ -834,6 +894,8 @@ def create_app(
         except Exception as e:
             logger.warning(f"Failed to persist backends configuration: {e}")
 
+        await _sync_config_to_storage(app.state.blob_storage, backends=app.state.backends)
+
         return {
             "message": f"Backend '{backend_in.id}' updated successfully",
             "backend": backend_in.model_dump(),
@@ -871,6 +933,8 @@ def create_app(
         except Exception as e:
             logger.warning(f"Failed to persist backends configuration: {e}")
 
+        await _sync_config_to_storage(app.state.blob_storage, backends=app.state.backends)
+
         return {
             "message": f"Backend '{backend_id}' deleted successfully",
             "deleted_id": backend_id,
@@ -903,8 +967,67 @@ def create_app(
     )
     async def update_policies(policies_update: PoliciesConfig):
         app.state.policies = policies_update
-        app.state.routing_engine.update_config(app.state.backends, policies_update)
+        app.state.routing_engine.update_config(app.state.backends, policies_update, app.state.backend_clients)
+        if hasattr(app.state, "local_fleet") and app.state.local_fleet and getattr(app.state.local_fleet, "routing_engine", None):
+            app.state.local_fleet.routing_engine.update_config(
+                app.state.backends, policies_update, app.state.backend_clients
+            )
+
+        try:
+            save_policies_config(app.state.policies, app.state.settings.policies_config_path)
+        except Exception as e:
+            logger.warning(f"Failed to persist policies configuration: {e}")
+
+        await _sync_config_to_storage(app.state.blob_storage, policies=app.state.policies)
+
         return {"message": "Policies updated successfully", "policies": policies_update.model_dump()}
+
+    @app.put(
+        "/v1/admin/policies/default",
+        summary="Set active default routing policy",
+        tags=["Admin"],
+    )
+    @app.post(
+        "/v1/admin/policies/default",
+        summary="Set active default routing policy",
+        tags=["Admin"],
+    )
+    async def set_default_policy(req: Dict[str, Any] = Body(...)):
+        policy_id = req.get("default_policy") or req.get("policy_id") or req.get("id")
+        if not policy_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Must specify 'default_policy' or 'policy_id'",
+            )
+
+        available_strategies = [s.id for s in app.state.policies.routing_strategies]
+        if policy_id not in available_strategies:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Routing strategy '{policy_id}' not found. Available strategies: {', '.join(available_strategies)}",
+            )
+
+        app.state.policies.default_policy = policy_id
+        app.state.routing_engine.update_config(
+            app.state.backends, app.state.policies, app.state.backend_clients
+        )
+        if hasattr(app.state, "local_fleet") and app.state.local_fleet and getattr(app.state.local_fleet, "routing_engine", None):
+            app.state.local_fleet.routing_engine.update_config(
+                app.state.backends, app.state.policies, app.state.backend_clients
+            )
+
+        try:
+            save_policies_config(app.state.policies, app.state.settings.policies_config_path)
+        except Exception as e:
+            logger.warning(f"Failed to persist policies configuration: {e}")
+
+        await _sync_config_to_storage(app.state.blob_storage, policies=app.state.policies)
+
+        return {
+            "message": f"Default routing policy updated to '{policy_id}' successfully",
+            "default_policy": policy_id,
+            "policies": app.state.policies.model_dump(),
+        }
 
     @app.get(
         "/v1/admin/info",

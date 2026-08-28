@@ -118,3 +118,34 @@ def test_save_and_reload_backends_config(tmp_path):
     assert loaded[0].cost_tier == "low"
     assert loaded[0].priority_weight == 95
     assert loaded[0].health_check.interval_seconds == 15
+
+
+def test_save_and_reload_policies_config(tmp_path):
+    from asyncgw.config import save_policies_config, RoutingStrategy, FailoverConfig, ContentRule, GlobalTimeouts
+    yaml_file = str(tmp_path / "policies.yaml")
+    
+    policies = PoliciesConfig(
+        default_policy="custom_failover",
+        routing_strategies=[
+            RoutingStrategy(
+                id="custom_failover",
+                name="Custom Failover Policy",
+                preference_order=["gemini-flex", "openai-direct"],
+                failover=FailoverConfig(enabled=True, max_retries_per_backend=3, retry_delay_seconds=0.5)
+            )
+        ],
+        content_rules=[
+            ContentRule(name="test_rule", model_mappings={"claude-.*": "mock-high-capacity"})
+        ],
+        global_timeouts=GlobalTimeouts(default_max_wait_seconds=120)
+    )
+    
+    save_policies_config(policies, yaml_file)
+    loaded = load_policies_config(yaml_file)
+    assert loaded.default_policy == "custom_failover"
+    assert len(loaded.routing_strategies) == 1
+    assert loaded.routing_strategies[0].id == "custom_failover"
+    assert loaded.routing_strategies[0].preference_order == ["gemini-flex", "openai-direct"]
+    assert loaded.routing_strategies[0].failover.max_retries_per_backend == 3
+    assert loaded.content_rules[0].model_mappings == {"claude-.*": "mock-high-capacity"}
+    assert loaded.global_timeouts.default_max_wait_seconds == 120

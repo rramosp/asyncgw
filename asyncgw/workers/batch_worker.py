@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import time
-from typing import Optional
+from typing import Optional, Callable, Awaitable, Any
 
 from asyncgw.backends.base import BackendExecutionResult, BaseLLMBackend
 from asyncgw.batch.reassembler import BatchReassembler
@@ -26,14 +26,21 @@ class BatchSubRequestWorker:
         blob_storage: BaseBlobStorage,
         routing_engine: RoutingEngine,
         batch_reassembler: BatchReassembler,
+        config_reloader: Optional[Callable[[], Awaitable[Any]]] = None,
     ):
         self.request_tracker = request_tracker
         self.blob_storage = blob_storage
         self.routing_engine = routing_engine
         self.batch_reassembler = batch_reassembler
+        self.config_reloader = config_reloader
 
     async def process_sub_request(self, envelope: AsyncRequestEnvelope) -> None:
         """Process an individual sub-request from a decomposed batch."""
+        if self.config_reloader is not None:
+            try:
+                await self.config_reloader()
+            except Exception as e:
+                logger.debug(f"Error checking config reloader: {e}")
         parent_id = envelope.parent_request_id or envelope.request_id
         seq = envelope.sequence_number if envelope.sequence_number is not None else 0
 

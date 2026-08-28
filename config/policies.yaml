@@ -53,13 +53,6 @@ policies:
         max_wait_seconds_under: 30
       target_policy: "latency_sensitive"
 
-    - name: "model_family_routing"
-      model_mappings:
-        "gpt-4.*": "openai-direct"
-        "o1.*": "openai-direct"
-        "o3.*": "openai-direct"
-        "gemini-.*": "gcp-provisioned-gemini"
-        "mock-.*": "mock-high-capacity"
 
   global_timeouts:
     default_max_wait_seconds: 3600 # 1 hour default

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import time
-from typing import Optional
+from typing import Optional, Callable, Awaitable, Any
 
 from asyncgw.backends.base import BackendExecutionResult, BaseLLMBackend
 from asyncgw.batch.splitter import BatchSplitter
@@ -27,14 +27,21 @@ class PrimaryRequestWorker:
         blob_storage: BaseBlobStorage,
         routing_engine: RoutingEngine,
         batch_splitter: BatchSplitter,
+        config_reloader: Optional[Callable[[], Awaitable[Any]]] = None,
     ):
         self.request_tracker = request_tracker
         self.blob_storage = blob_storage
         self.routing_engine = routing_engine
         self.batch_splitter = batch_splitter
+        self.config_reloader = config_reloader
 
     async def process_envelope(self, envelope: AsyncRequestEnvelope) -> None:
         """Process a single incoming request envelope."""
+        if self.config_reloader is not None:
+            try:
+                await self.config_reloader()
+            except Exception as e:
+                logger.debug(f"Error checking config reloader: {e}")
         logger.info(f"Processing request {envelope.request_id} (type: {envelope.request_type}, model: {envelope.model})")
 
         # 1. Check user deadline / max wait time

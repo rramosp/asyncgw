@@ -33,9 +33,9 @@ resource "google_project_iam_member" "gateway_bq_user" {
   member  = "serviceAccount:${google_service_account.gateway_sa.email}"
 }
 
-resource "google_project_iam_member" "gateway_storage_viewer" {
+resource "google_project_iam_member" "gateway_storage_admin" {
   project = var.project_id
-  role    = "roles/storage.objectViewer"
+  role    = "roles/storage.objectAdmin"
   member  = "serviceAccount:${google_service_account.gateway_sa.email}"
 }
 

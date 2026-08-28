@@ -71,6 +71,15 @@ class RoutingEngine:
             self.backend_clients = backend_clients
         self.health_monitor.update_backends(backends)
 
+    def _backend_supports_model(self, b_cfg: BackendConfig, model_name: Optional[str]) -> bool:
+        """Check whether backend explicitly supports requested model name."""
+        if not model_name or not b_cfg.supported_models:
+            return True
+        for m in b_cfg.supported_models:
+            if m == model_name or re.fullmatch(m, model_name) or m in model_name:
+                return True
+        return False
+
     def _estimate_tokens(self, envelope: AsyncRequestEnvelope) -> int:
         """Rough token estimation for routing purposes."""
         messages = envelope.payload.get("messages", [])
@@ -187,22 +196,33 @@ class RoutingEngine:
                 reason="No strategy configured; using fallback backend",
             )
 
-        # Sort candidate backends by preference order, checking health status
-        ordered_candidates = []
-        unhealthy_candidates = []
+        # Sort candidate backends by preference order, prioritizing model support and health status
+        matching_healthy = []
+        matching_unhealthy = []
+        other_healthy = []
+        other_unhealthy = []
 
         for b_id in strategy.preference_order:
             b_cfg = self.backends_map.get(b_id)
             if not b_cfg or not b_cfg.is_active:
                 continue
 
-            if self.health_monitor.is_backend_available(b_id):
-                ordered_candidates.append(b_cfg)
-            else:
-                unhealthy_candidates.append(b_cfg)
+            is_avail = self.health_monitor.is_backend_available(b_id)
+            supports_model = self._backend_supports_model(b_cfg, envelope.model)
 
-        # Append unhealthy at the very tail as last-resort failover
-        candidates = ordered_candidates + unhealthy_candidates
+            if supports_model:
+                if is_avail:
+                    matching_healthy.append(b_cfg)
+                else:
+                    matching_unhealthy.append(b_cfg)
+            else:
+                if is_avail:
+                    other_healthy.append(b_cfg)
+                else:
+                    other_unhealthy.append(b_cfg)
+
+        # Prioritize matching healthy backends, then other healthy backends, then unhealthy
+        candidates = matching_healthy + other_healthy + matching_unhealthy + other_unhealthy
         if not candidates:
             candidates = list(self.backends_map.values())
 

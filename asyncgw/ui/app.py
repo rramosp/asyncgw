@@ -334,15 +334,45 @@ DASHBOARD_HTML = r"""
 
         <!-- TAB: POLICIES -->
         <section id="view-policies" class="hidden space-y-6">
-            <div>
-                <h2 class="text-lg font-bold">Routing & Failover Strategies</h2>
-                <p class="text-xs text-slate-400">Rules controlling backend preference orders, failover retry sequences, and token thresholds.</p>
+            <!-- Active Default Policy Banner & Selector -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/50 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                            <i class="fa-solid fa-route text-lg"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-100">Routing & Failover Strategies</h2>
+                            <p class="text-xs text-slate-400">Manage backend preference sequences, failover policies, and live default routing.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="bg-slate-950/90 border border-slate-800 px-3.5 py-2 rounded-xl flex items-center gap-2">
+                            <span class="text-xs text-slate-400 font-medium">Default Policy:</span>
+                            <span id="active-default-policy-badge" class="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 mono flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-star text-[10px] text-amber-400"></i> <span id="active-default-policy-name">cost_optimized_with_failover</span>
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select id="default-policy-select" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-indigo-500 shadow-inner">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <button id="set-default-policy-btn" onclick="saveDefaultPolicyFromSelect()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-md active:scale-95 disabled:opacity-50">
+                                <i class="fa-solid fa-check"></i> <span id="set-default-policy-btn-text">Apply Default</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
-                    <h3 class="font-bold text-indigo-400 flex items-center gap-2">
-                        <i class="fa-solid fa-list-ol"></i> Configured Strategies
-                    </h3>
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-indigo-400 flex items-center gap-2">
+                            <i class="fa-solid fa-list-ol"></i> Configured Strategies
+                        </h3>
+                        <span class="text-[11px] text-slate-500 font-medium">Click "Set as Default" to switch live</span>
+                    </div>
                     <div id="strategies-list" class="space-y-3">
                         <!-- Filled by JS -->
                     </div>
@@ -2586,31 +2616,102 @@ DASHBOARD_HTML = r"""
             }
         }
 
+        let cachedPolicies = null;
+
+        async function setDefaultPolicy(policyId) {
+            if (!policyId) return;
+            const applyBtn = document.getElementById('set-default-policy-btn');
+            const applyBtnText = document.getElementById('set-default-policy-btn-text');
+            if (applyBtn) applyBtn.disabled = true;
+            if (applyBtnText) applyBtnText.innerText = 'Applying...';
+
+            try {
+                const res = await fetch('/v1/admin/policies/default', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ default_policy: policyId })
+                });
+                const result = await res.json();
+                if (!res.ok) {
+                    throw new Error(result.detail || 'Failed to update default routing policy');
+                }
+
+                showToast(`Default routing policy updated to '${policyId}'`, 'success');
+                await loadPolicies();
+            } catch(e) {
+                console.error('Set default policy error', e);
+                showToast('Error updating default policy: ' + e.message, 'error');
+            } finally {
+                if (applyBtn) applyBtn.disabled = false;
+                if (applyBtnText) applyBtnText.innerText = 'Apply Default';
+            }
+        }
+
+        async function saveDefaultPolicyFromSelect() {
+            const sel = document.getElementById('default-policy-select');
+            if (!sel) return;
+            await setDefaultPolicy(sel.value);
+        }
+
         async function loadPolicies() {
             try {
                 const res = await fetch('/v1/admin/policies');
                 const data = await res.json();
-                
-                document.getElementById('strategies-list').innerHTML = data.routing_strategies.map(s => `
-                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-sm text-slate-200">${s.name}</span>
-                            <span class="mono text-xs text-indigo-400">${s.id}</span>
-                        </div>
-                        <p class="text-xs text-slate-400">${s.description || ''}</p>
-                        <div class="text-xs">
-                            <span class="text-slate-500 font-semibold">Preference Order:</span>
-                            <div class="flex flex-wrap gap-1.5 mt-1">
-                                ${s.preference_order.map(p => `<span class="px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[11px] mono text-slate-300">${p}</span>`).join(' &rarr; ')}
+                cachedPolicies = data;
+
+                const defaultPolicyId = data.default_policy || '';
+                const activeNameEl = document.getElementById('active-default-policy-name');
+                if (activeNameEl) activeNameEl.innerText = defaultPolicyId;
+
+                const sel = document.getElementById('default-policy-select');
+                if (sel) {
+                    sel.innerHTML = (data.routing_strategies || []).map(s => `
+                        <option value="${escapeHtml(s.id)}" ${s.id === defaultPolicyId ? 'selected' : ''}>
+                            ${escapeHtml(s.name || s.id)} (${escapeHtml(s.id)})
+                        </option>
+                    `).join('');
+                }
+
+                document.getElementById('strategies-list').innerHTML = (data.routing_strategies || []).map(s => {
+                    const isDefault = s.id === defaultPolicyId;
+                    const cardBorder = isDefault ? 'border-emerald-500/60 bg-slate-950 shadow-md ring-1 ring-emerald-500/20' : 'border-slate-800 bg-slate-950/70 hover:border-slate-700';
+                    const defaultBadge = isDefault
+                        ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700 flex items-center gap-1"><i class="fa-solid fa-star text-[9px] text-amber-400"></i> Active Default</span>`
+                        : `<button onclick="setDefaultPolicy('${escapeHtml(s.id)}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white border border-slate-700 transition flex items-center gap-1 shadow-sm"><i class="fa-solid fa-check text-[10px]"></i> Set as Default</button>`;
+
+                    return `
+                    <div class="p-4 rounded-xl border ${cardBorder} space-y-3 transition">
+                        <div class="flex justify-between items-start gap-2">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-sm text-slate-200">${escapeHtml(s.name)}</span>
+                                </div>
+                                <span class="mono text-xs text-indigo-400">${escapeHtml(s.id)}</span>
+                            </div>
+                            <div>
+                                ${defaultBadge}
                             </div>
                         </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">${escapeHtml(s.description || '')}</p>
+                        <div class="text-xs pt-1 border-t border-slate-800/80">
+                            <span class="text-slate-500 font-semibold">Preference Order:</span>
+                            <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                ${(s.preference_order || []).map(p => `<span class="px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[11px] mono text-slate-300">${escapeHtml(p)}</span>`).join(' <span class="text-slate-600 text-[10px]">&rarr;</span> ')}
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                            <span>Failover: <b class="text-slate-400">${s.failover?.enabled ? 'Enabled' : 'Disabled'}</b> (max retries: ${s.failover?.max_retries_per_backend || 1})</span>
+                        </div>
                     </div>
-                `).join('');
+                `;}).join('');
 
-                document.getElementById('content-rules-list').innerHTML = data.content_rules.map(r => `
+                document.getElementById('content-rules-list').innerHTML = (data.content_rules || []).map(r => `
                     <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs">
-                        <span class="font-bold text-slate-200 text-sm">${r.name}</span>
-                        <pre class="bg-slate-900 p-2 rounded text-[11px] mono text-slate-400">${JSON.stringify(r, null, 2)}</pre>
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-200 text-sm">${escapeHtml(r.name)}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-400 border border-amber-800">Rule</span>
+                        </div>
+                        <pre class="bg-slate-900 p-2.5 rounded-lg text-[11px] mono text-slate-300 overflow-x-auto border border-slate-800/60">${escapeHtml(JSON.stringify(r, null, 2))}</pre>
                     </div>
                 `).join('');
             } catch(e) {

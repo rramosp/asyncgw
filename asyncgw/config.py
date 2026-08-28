@@ -272,3 +272,16 @@ def save_backends_config(backends: List[BackendConfig], file_path: Optional[str]
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(raw_data, f, default_flow_style=False, sort_keys=False, indent=2)
+
+def save_policies_config(policies: PoliciesConfig, file_path: Optional[str] = None) -> None:
+    """Save policies configuration to YAML file."""
+    path = Path(file_path or os.getenv("POLICIES_CONFIG_PATH", "config/policies.yaml"))
+    if not path.is_absolute():
+        base_dir = Path(__file__).resolve().parent.parent
+        path = base_dir / path
+
+    raw_data = {"policies": policies.model_dump(exclude_none=True)}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(raw_data, f, default_flow_style=False, sort_keys=False, indent=2)
+

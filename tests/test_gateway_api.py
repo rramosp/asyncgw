@@ -664,3 +664,87 @@ async def test_ui_dashboard_backend_management_elements(app_and_client):
 
         # Verify Toast Container
         assert 'id="toast-container"' in html
+
+
+@pytest.mark.asyncio
+async def test_policies_api_endpoints_and_default_selection(app_and_client):
+    app, client, tracker, storage, producer, consumer, q1, q2, q3 = app_and_client
+
+    # 1. GET /v1/admin/policies
+    res = await client.get("/v1/admin/policies")
+    assert res.status_code == 200
+    data = res.json()
+    assert "default_policy" in data
+    assert "routing_strategies" in data
+    assert "content_rules" in data
+    original_default = data["default_policy"]
+
+    # 2. Update default policy to latency_sensitive via PUT /v1/admin/policies/default
+    put_res = await client.put(
+        "/v1/admin/policies/default",
+        json={"default_policy": "latency_sensitive"},
+    )
+    assert put_res.status_code == 200
+    put_data = put_res.json()
+    assert put_data["default_policy"] == "latency_sensitive"
+    assert app.state.policies.default_policy == "latency_sensitive"
+    assert app.state.routing_engine.policies.default_policy == "latency_sensitive"
+
+    # 3. Verify GET reflects new default policy
+    get_res = await client.get("/v1/admin/policies")
+    assert get_res.status_code == 200
+    assert get_res.json()["default_policy"] == "latency_sensitive"
+
+    # 4. Update default policy via POST with policy_id key
+    post_res = await client.post(
+        "/v1/admin/policies/default",
+        json={"policy_id": "cost_optimized_with_failover"},
+    )
+    assert post_res.status_code == 200
+    assert post_res.json()["default_policy"] == "cost_optimized_with_failover"
+    assert app.state.policies.default_policy == "cost_optimized_with_failover"
+
+    # 5. Invalid policy id returns 404
+    bad_res = await client.put(
+        "/v1/admin/policies/default",
+        json={"default_policy": "non_existent_policy_xyz"},
+    )
+    assert bad_res.status_code == 404
+    assert "not found" in bad_res.json()["detail"].lower()
+
+    # 6. Missing policy id returns 400
+    missing_res = await client.put(
+        "/v1/admin/policies/default",
+        json={},
+    )
+    assert missing_res.status_code == 400
+
+    # 7. Update entire policies configuration via PUT /v1/admin/policies
+    data["default_policy"] = "batch_bulk_throughput"
+    full_put_res = await client.put("/v1/admin/policies", json=data)
+    assert full_put_res.status_code == 200
+    assert full_put_res.json()["policies"]["default_policy"] == "batch_bulk_throughput"
+    assert app.state.policies.default_policy == "batch_bulk_throughput"
+
+
+@pytest.mark.asyncio
+async def test_ui_dashboard_policy_management_elements(app_and_client):
+    from asyncgw.ui.app import create_ui_app
+    app, client, tracker, storage, producer, consumer, q1, q2, q3 = app_and_client
+
+    ui_app = create_ui_app(app)
+    from httpx import ASGITransport, AsyncClient
+    async with AsyncClient(transport=ASGITransport(app=ui_app), base_url="http://test") as ui_client:
+        res = await ui_client.get("/")
+        assert res.status_code == 200
+        html = res.text
+
+        # Verify Policy View Elements
+        assert 'id="view-policies"' in html
+        assert 'id="active-default-policy-badge"' in html
+        assert 'id="active-default-policy-name"' in html
+        assert 'id="default-policy-select"' in html
+        assert 'id="set-default-policy-btn"' in html
+        assert 'setDefaultPolicy' in html
+        assert 'saveDefaultPolicyFromSelect' in html
+        assert 'loadPolicies' in html
