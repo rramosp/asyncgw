@@ -44,6 +44,7 @@ class BatchReassembler:
         is_error: bool = False,
         status_code: int = 200,
         error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Save individual partial result to GCS for later reassembly."""
         part_path = self.get_part_gcs_path(parent_request_id, sequence_number)
@@ -53,6 +54,7 @@ class BatchReassembler:
             "sequence_number": sequence_number,
             "response": {"status_code": status_code, "body": result_data} if not is_error else None,
             "error": {"code": status_code, "message": error_message} if is_error else None,
+            "metadata": metadata,
         }
         uri = await self.blob_storage.save_json(part_path, part_payload)
         logger.debug(f"Saved batch sub-request part to {uri}")
@@ -108,6 +110,7 @@ class BatchReassembler:
                     custom_id=part_data.get("custom_id", f"custom_{seq}"),
                     response=part_data.get("response"),
                     error=part_data.get("error"),
+                    metadata=part_data.get("metadata") or s.metadata,
                 )
                 if item.response:
                     completed_count += 1
@@ -124,6 +127,7 @@ class BatchReassembler:
                         custom_id=f"custom_{seq}",
                         response=None,
                         error={"code": 500, "message": f"Worker crashed or part missing: {str(e)}"},
+                        metadata=s.metadata,
                     )
                 )
 
@@ -131,7 +135,7 @@ class BatchReassembler:
         final_status = (
             RequestStatusEnum.COMPLETED
             if failed_count == 0
-            else (RequestStatusEnum.COMPLETED if completed_count > 0 else RequestStatusEnum.FAILED)
+            else RequestStatusEnum.FAILED
         )
 
         # Retrieve the real serving backend ID from the completed sub-requests
@@ -171,6 +175,21 @@ class BatchReassembler:
         start_time = sub_requests[0].created_at or datetime.now(timezone.utc)
         elapsed_sec = (datetime.now(timezone.utc) - start_time).total_seconds()
 
+        # Calculate parent metadata containing request counts and excluding collated sub-request traces
+        parent_status_res = await self.request_tracker.get_request_status(parent_request_id)
+        parent_meta = (parent_status_res.metadata or {}) if parent_status_res else {}
+        parent_metadata = {
+            **{k: v for k, v in parent_meta.items() if k not in ["backends_tried", "failover_trace"]},
+            "request_counts": {
+                "total": total_items,
+                "completed": completed_count,
+                "failed": failed_count,
+            },
+            "total_items": total_items,
+            "completed_items": completed_count,
+            "failed_items": failed_count,
+        }
+
         # Update parent record in BigQuery
         if final_status == RequestStatusEnum.COMPLETED:
             await self.request_tracker.mark_completed(
@@ -183,6 +202,7 @@ class BatchReassembler:
                 backend_batch_service_mode="decomposed",
                 content_tokens=total_tokens,
                 sequence_number=None,
+                metadata=parent_metadata,
             )
         else:
             await self.request_tracker.mark_failed(
@@ -193,6 +213,8 @@ class BatchReassembler:
                 backend_service_id=served_backend_id,
                 backend_batch_service_mode="decomposed",
                 sequence_number=None,
+                response_gcs_uri=final_gcs_uri,
+                metadata=parent_metadata,
             )
 
         logger.info(

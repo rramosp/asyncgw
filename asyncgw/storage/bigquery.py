@@ -242,6 +242,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        response_gcs_uri: Optional[str] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
@@ -254,6 +255,7 @@ class BigQueryRequestTracker(BaseRequestTracker):
             "completed_at": now_iso,
             "error_message": error_message,
             "response_status_code": response_status_code or 500,
+            "response_gcs_uri": response_gcs_uri,
             "elapsed_seconds": elapsed_seconds or 0.0,
             "backend_service_id": backend_service_id or "",
             "backend_batch_service_mode": backend_batch_service_mode or "",

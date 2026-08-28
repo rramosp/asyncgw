@@ -44,6 +44,10 @@ class BatchSubRequestWorker:
         # 1. Check deadline
         if envelope.is_expired():
             logger.warning(f"Batch sub-request {envelope.request_id} (seq: {seq}) timed out before execution.")
+            timeout_meta = {
+                **(envelope.tags or {}),
+                "error": f"Sub-request exceeded maximum wait deadline ({envelope.max_wait_seconds}s)",
+            }
             await self.batch_reassembler.save_sub_request_part(
                 parent_request_id=parent_id,
                 sequence_number=seq,
@@ -52,6 +56,7 @@ class BatchSubRequestWorker:
                 is_error=True,
                 status_code=408,
                 error_message=f"Sub-request exceeded maximum wait deadline ({envelope.max_wait_seconds}s)",
+                metadata=timeout_meta,
             )
             await self.request_tracker.mark_timed_out(
                 request_id=envelope.request_id,
@@ -111,6 +116,7 @@ class BatchSubRequestWorker:
                 result_data=result.response_data,
                 is_error=False,
                 status_code=result.status_code,
+                metadata=final_metadata,
             )
             await self.request_tracker.mark_completed(
                 request_id=envelope.request_id,
@@ -133,6 +139,7 @@ class BatchSubRequestWorker:
                 is_error=True,
                 status_code=result.status_code,
                 error_message=result.error_message,
+                metadata=final_metadata,
             )
             await self.request_tracker.mark_failed(
                 request_id=envelope.request_id,

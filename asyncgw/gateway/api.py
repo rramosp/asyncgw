@@ -352,15 +352,29 @@ def create_app(
         summary="Submit Batch Request (OpenAI Batch API Compatible)",
         tags=["Batch"],
     )
-    async def submit_batch(req: BatchRequest):
+    async def submit_batch(
+        req: BatchRequest,
+        x_max_wait_seconds: Optional[int] = Header(None, alias="X-Max-Wait-Seconds"),
+        x_routing_override: Optional[str] = Header(None, alias="X-Routing-Override"),
+    ):
         now = datetime.now(timezone.utc)
         batch_id = f"batch_{uuid.uuid4().hex}"
-        expires_at, effective_max_wait = _compute_deadline(now, req.max_wait_seconds)
+        max_wait = req.max_wait_seconds or x_max_wait_seconds
+        expires_at, effective_max_wait = _compute_deadline(now, max_wait)
 
         total_items = len(req.requests) if req.requests else 1
         model_name = "batch-model"
         if req.requests and len(req.requests) > 0 and "model" in req.requests[0].body:
             model_name = req.requests[0].body["model"]
+
+        target_backend = (
+            req.metadata.get("target_backend")
+            or req.metadata.get("routing_override")
+            or x_routing_override
+            if req.metadata
+            else x_routing_override
+        )
+        routing_strategy = req.metadata.get("routing_strategy") if req.metadata else None
 
         envelope = AsyncRequestEnvelope(
             request_id=batch_id,
@@ -373,6 +387,8 @@ def create_app(
             max_wait_seconds=effective_max_wait,
             raw_input_gcs_uri=req.input_file_id,
             tags=req.metadata or {},
+            target_backend=target_backend,
+            routing_strategy=routing_strategy,
         )
 
         decision = app.state.routing_engine.route_request(envelope)
@@ -388,8 +404,6 @@ def create_app(
             },
             "strategy_id": decision.strategy_id,
             "selection_reason": decision.reason,
-            "backends_tried": [],
-            "failover_trace": [],
         }
 
         await app.state.request_tracker.register_request(envelope)
@@ -427,9 +441,15 @@ def create_app(
         if is_batch:
             sub_reqs = await app.state.request_tracker.get_batch_sub_requests(request_id)
             if sub_reqs:
+                status_res.total_items = len(sub_reqs)
+                status_res.completed_items = sum(1 for s in sub_reqs if s.status == RequestStatusEnum.COMPLETED)
+                status_res.failed_items = sum(1 for s in sub_reqs if s.status in [RequestStatusEnum.FAILED, RequestStatusEnum.TIMED_OUT])
                 status_res.backend_batch_service_mode = "decomposed"
             elif not status_res.backend_batch_service_mode:
                 status_res.backend_batch_service_mode = "native"
+            if status_res.metadata is not None:
+                status_res.metadata.pop("backends_tried", None)
+                status_res.metadata.pop("failover_trace", None)
         else:
             status_res.backend_batch_service_mode = None
 
@@ -466,6 +486,22 @@ def create_app(
             )
 
         if status_res.status == RequestStatusEnum.FAILED:
+            # Check if this was a batch request with response_gcs_uri
+            is_batch = status_res.request_type == RequestType.BATCH.value or request_id.startswith("batch_") or (status_res.total_items and status_res.total_items > 1)
+            if is_batch and status_res.response_gcs_uri:
+                try:
+                    data = await app.state.blob_storage.get_json(status_res.response_gcs_uri)
+                    if isinstance(data, dict):
+                        if status_res.backend_service_id and (not data.get("backend_service_id") or data.get("backend_service_id") == "gateway_batch_reassembler"):
+                            data["backend_service_id"] = status_res.backend_service_id
+                        if not data.get("backend_batch_service_mode"):
+                            sub_reqs = await app.state.request_tracker.get_batch_sub_requests(request_id)
+                            data["backend_batch_service_mode"] = "decomposed" if sub_reqs else "native"
+                        _format_batch_results_response(data, status_res)
+                    return JSONResponse(status_code=200, content=data)
+                except Exception:
+                    pass
+
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={
@@ -562,9 +598,23 @@ def create_app(
             status_res.completed_items = sum(1 for s in sub_reqs if s.status == RequestStatusEnum.COMPLETED)
             status_res.failed_items = sum(1 for s in sub_reqs if s.status in [RequestStatusEnum.FAILED, RequestStatusEnum.TIMED_OUT])
             status_res.backend_batch_service_mode = "decomposed"
+            if status_res.metadata is not None:
+                status_res.metadata["request_counts"] = {
+                    "total": status_res.total_items,
+                    "completed": status_res.completed_items,
+                    "failed": status_res.failed_items,
+                }
+                status_res.metadata["total_items"] = status_res.total_items
+                status_res.metadata["completed_items"] = status_res.completed_items
+                status_res.metadata["failed_items"] = status_res.failed_items
+                status_res.metadata.pop("backends_tried", None)
+                status_res.metadata.pop("failover_trace", None)
         else:
             if not status_res.backend_batch_service_mode:
                 status_res.backend_batch_service_mode = "native"
+            if status_res.metadata is not None:
+                status_res.metadata.pop("backends_tried", None)
+                status_res.metadata.pop("failover_trace", None)
 
         return status_res
 

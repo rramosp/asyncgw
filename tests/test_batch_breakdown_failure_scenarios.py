@@ -68,13 +68,14 @@ async def test_batch_decomposition_with_partial_worker_failure(mock_storage, moc
     assert sub_records[3].status == RequestStatusEnum.COMPLETED
     assert sub_records[4].status == RequestStatusEnum.COMPLETED
 
-    # 5. Verify parent batch was properly reassembled in GCS
+    # 5. Verify parent batch was properly reassembled in GCS and marked FAILED due to item failure
     parent_record = await tracker.get_request_status("batch_chaos_5_items")
-    assert parent_record.status == RequestStatusEnum.COMPLETED
+    assert parent_record.status == RequestStatusEnum.FAILED
     assert parent_record.response_gcs_uri is not None
 
     final_output = await storage.get_json(parent_record.response_gcs_uri)
     assert final_output["id"] == "batch_chaos_5_items"
+    assert final_output["status"] == "FAILED"
     assert final_output["request_counts"]["total"] == 5
     assert final_output["request_counts"]["completed"] == 4
     assert final_output["request_counts"]["failed"] == 1

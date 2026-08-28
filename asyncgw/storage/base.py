@@ -66,6 +66,7 @@ class BaseRequestTracker(ABC):
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        response_gcs_uri: Optional[str] = None,
     ) -> None:
         """Mark request as FAILED."""
         pass

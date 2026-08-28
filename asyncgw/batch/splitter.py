@@ -71,6 +71,10 @@ class BatchSplitter:
         sub_envelopes: List[AsyncRequestEnvelope] = []
 
         for seq, item in enumerate(items):
+            sub_tags = {
+                k: v for k, v in (parent_envelope.tags or {}).items()
+                if k not in ["routing_policy", "strategy_id", "selection_reason", "backends_tried", "failover_trace", "request_counts"]
+            }
             sub_env = AsyncRequestEnvelope(
                 request_id=f"{parent_envelope.request_id}_{seq}",
                 parent_request_id=parent_envelope.request_id,
@@ -85,7 +89,7 @@ class BatchSplitter:
                 max_wait_seconds=parent_envelope.max_wait_seconds,
                 client_id=parent_envelope.client_id,
                 priority=parent_envelope.priority,
-                tags=parent_envelope.tags.copy() if parent_envelope.tags else {},
+                tags=sub_tags,
                 routing_strategy=parent_envelope.routing_strategy,
                 target_backend=parent_envelope.target_backend,
             )

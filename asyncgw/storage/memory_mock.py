@@ -147,7 +147,13 @@ class InMemoryRequestTracker(BaseRequestTracker):
                             existing = json.loads(self.records[key]["metadata_json"])
                         except Exception:
                             pass
+                    if backend_batch_service_mode is not None:
+                        existing.pop("backends_tried", None)
+                        existing.pop("failover_trace", None)
                     existing.update(metadata)
+                    if backend_batch_service_mode is not None:
+                        existing.pop("backends_tried", None)
+                        existing.pop("failover_trace", None)
                     self.records[key]["metadata_json"] = json.dumps(existing)
 
     async def mark_failed(
@@ -160,6 +166,7 @@ class InMemoryRequestTracker(BaseRequestTracker):
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        response_gcs_uri: Optional[str] = None,
     ) -> None:
         async with self._lock:
             key = self._get_key(request_id, sequence_number)
@@ -169,6 +176,8 @@ class InMemoryRequestTracker(BaseRequestTracker):
                 self.records[key]["error_message"] = error_message
                 self.records[key]["response_status_code"] = response_status_code or 500
                 self.records[key]["elapsed_seconds"] = elapsed_seconds or 0.0
+                if response_gcs_uri is not None:
+                    self.records[key]["response_gcs_uri"] = response_gcs_uri
                 if backend_service_id:
                     self.records[key]["backend_service_id"] = backend_service_id
                 if backend_batch_service_mode is not None:
@@ -180,7 +189,13 @@ class InMemoryRequestTracker(BaseRequestTracker):
                             existing = json.loads(self.records[key]["metadata_json"])
                         except Exception:
                             pass
+                    if backend_batch_service_mode is not None:
+                        existing.pop("backends_tried", None)
+                        existing.pop("failover_trace", None)
                     existing.update(metadata)
+                    if backend_batch_service_mode is not None:
+                        existing.pop("backends_tried", None)
+                        existing.pop("failover_trace", None)
                     self.records[key]["metadata_json"] = json.dumps(existing)
 
     async def mark_timed_out(

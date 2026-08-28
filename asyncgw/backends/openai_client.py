@@ -100,12 +100,17 @@ class OpenAIBackend(BaseLLMBackend):
                 payload=item.body,
             )
             res = await self.execute_online(item_env)
+            item_meta = {
+                "backend_service_id": self.config.id,
+                "elapsed_seconds": res.elapsed_seconds,
+            }
             if res.success:
                 results.append({
                     "id": f"batch_req_{seq}",
                     "custom_id": item.custom_id,
                     "response": {"status_code": 200, "body": res.response_data},
                     "error": None,
+                    "metadata": item_meta,
                 })
             else:
                 results.append({
@@ -113,20 +118,24 @@ class OpenAIBackend(BaseLLMBackend):
                     "custom_id": item.custom_id,
                     "response": None,
                     "error": {"code": res.status_code, "message": res.error_message},
+                    "metadata": item_meta,
                 })
 
         elapsed = time.time() - start_time
+        failed_count = sum(1 for r in results if r.get("error") is not None)
+        status_str = "COMPLETED" if failed_count == 0 else "FAILED"
         batch_out = {
             "id": envelope.request_id,
             "object": "batch",
-            "status": "COMPLETED",
+            "status": status_str,
             "backend_service_id": self.config.id,
             "backend_batch_service_mode": "native",
             "results": results,
         }
         return BackendExecutionResult(
-            success=True,
-            status_code=200,
+            success=(failed_count == 0),
+            status_code=200 if failed_count == 0 else 500,
+            error_message=None if failed_count == 0 else f"Batch failed: {failed_count}/{len(items)} items failed",
             response_data=batch_out,
             elapsed_seconds=elapsed,
             content_length=len(json.dumps(batch_out)),
