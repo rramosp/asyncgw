@@ -57,11 +57,18 @@ class RoutingEngine:
         self.health_monitor = health_monitor
         self.backend_clients = backend_clients
 
-    def update_config(self, backends: List[BackendConfig], policies: PoliciesConfig) -> None:
+    def update_config(
+        self,
+        backends: List[BackendConfig],
+        policies: PoliciesConfig,
+        backend_clients: Optional[Dict[str, BaseLLMBackend]] = None,
+    ) -> None:
         self.backends = backends
         self.backends_map = {b.id: b for b in backends}
         self.policies = policies
         self.strategies_map = {s.id: s for s in policies.routing_strategies}
+        if backend_clients is not None:
+            self.backend_clients = backend_clients
         self.health_monitor.update_backends(backends)
 
     def _estimate_tokens(self, envelope: AsyncRequestEnvelope) -> int:

@@ -26,6 +26,7 @@ from asyncgw.config import (
     load_asyncgw_config,
     load_backends_config,
     load_policies_config,
+    save_backends_config,
 )
 from asyncgw.models.request import (
     AsyncRequestEnvelope,
@@ -51,6 +52,19 @@ from asyncgw.storage.gcs import GCSBlobStorage
 from asyncgw.storage.memory_mock import InMemoryBlobStorage, InMemoryRequestTracker
 
 logger = logging.getLogger(__name__)
+
+
+
+def create_backend_client(b_cfg: BackendConfig, environment_mode: str = "mock") -> BaseLLMBackend:
+    """Factory to instantiate backend client corresponding to backend configuration."""
+    if b_cfg.endpoint_url.startswith("mock://") or environment_mode == "mock":
+        return MockBackend(b_cfg)
+    elif "openai.com" in b_cfg.endpoint_url:
+        return OpenAIBackend(b_cfg)
+    elif "provisioned" in b_cfg.id.lower():
+        return GCPProvisionedBackend(b_cfg)
+    else:
+        return GeminiFlexBackend(b_cfg)
 
 
 def create_app(
@@ -98,14 +112,7 @@ def create_app(
     # Build backend clients map
     backend_clients: Dict[str, BaseLLMBackend] = {}
     for b_cfg in backends:
-        if b_cfg.endpoint_url.startswith("mock://") or settings.environment_mode == "mock":
-            backend_clients[b_cfg.id] = MockBackend(b_cfg)
-        elif "openai.com" in b_cfg.endpoint_url:
-            backend_clients[b_cfg.id] = OpenAIBackend(b_cfg)
-        elif "provisioned" in b_cfg.id.lower():
-            backend_clients[b_cfg.id] = GCPProvisionedBackend(b_cfg)
-        else:
-            backend_clients[b_cfg.id] = GeminiFlexBackend(b_cfg)
+        backend_clients[b_cfg.id] = create_backend_client(b_cfg, settings.environment_mode)
 
     health_monitor = HealthMonitor(backends)
     routing_engine = RoutingEngine(backends, policies, health_monitor, backend_clients)
@@ -728,6 +735,146 @@ def create_app(
                 "health": h.model_dump() if h else {"is_healthy": True},
             })
         return {"backends": results}
+
+    @app.get(
+        "/v1/admin/backends/{backend_id}",
+        summary="Get details and health status for a specific backend service",
+        tags=["Admin"],
+    )
+    async def get_backend(backend_id: str):
+        target = next((b for b in app.state.backends if b.id == backend_id), None)
+        if not target:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Backend '{backend_id}' not found",
+            )
+        health = app.state.health_monitor.get_all_statuses().get(backend_id)
+        return {
+            "config": target.model_dump(),
+            "health": health.model_dump() if health else {"is_healthy": True},
+        }
+
+    @app.post(
+        "/v1/admin/backends",
+        summary="Register a new LLM backend service",
+        tags=["Admin"],
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_backend(backend_in: BackendConfig):
+        if any(b.id == backend_in.id for b in app.state.backends):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Backend with ID '{backend_in.id}' already exists",
+            )
+
+        app.state.backends.append(backend_in)
+        client = create_backend_client(backend_in, app.state.settings.environment_mode)
+        app.state.backend_clients[backend_in.id] = client
+        app.state.health_monitor.update_backends(app.state.backends)
+        app.state.routing_engine.update_config(
+            app.state.backends, app.state.policies, app.state.backend_clients
+        )
+
+        if hasattr(app.state, "local_fleet") and app.state.local_fleet and getattr(app.state.local_fleet, "routing_engine", None):
+            app.state.local_fleet.routing_engine.update_config(
+                app.state.backends, app.state.policies, app.state.backend_clients
+            )
+
+        try:
+            save_backends_config(app.state.backends, app.state.settings.backends_config_path)
+        except Exception as e:
+            logger.warning(f"Failed to persist backends configuration: {e}")
+
+        return {
+            "message": f"Backend '{backend_in.id}' registered successfully",
+            "backend": backend_in.model_dump(),
+        }
+
+    @app.put(
+        "/v1/admin/backends/{backend_id}",
+        summary="Update an existing LLM backend service",
+        tags=["Admin"],
+    )
+    async def update_backend(backend_id: str, backend_in: BackendConfig):
+        target_idx = next(
+            (i for i, b in enumerate(app.state.backends) if b.id == backend_id), None
+        )
+        if target_idx is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Backend '{backend_id}' not found",
+            )
+
+        if backend_in.id != backend_id and any(
+            b.id == backend_in.id for b in app.state.backends
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot rename: backend with ID '{backend_in.id}' already exists",
+            )
+
+        if backend_in.id != backend_id:
+            app.state.backend_clients.pop(backend_id, None)
+
+        app.state.backends[target_idx] = backend_in
+        client = create_backend_client(backend_in, app.state.settings.environment_mode)
+        app.state.backend_clients[backend_in.id] = client
+        app.state.health_monitor.update_backends(app.state.backends)
+        app.state.routing_engine.update_config(
+            app.state.backends, app.state.policies, app.state.backend_clients
+        )
+
+        if hasattr(app.state, "local_fleet") and app.state.local_fleet and getattr(app.state.local_fleet, "routing_engine", None):
+            app.state.local_fleet.routing_engine.update_config(
+                app.state.backends, app.state.policies, app.state.backend_clients
+            )
+
+        try:
+            save_backends_config(app.state.backends, app.state.settings.backends_config_path)
+        except Exception as e:
+            logger.warning(f"Failed to persist backends configuration: {e}")
+
+        return {
+            "message": f"Backend '{backend_in.id}' updated successfully",
+            "backend": backend_in.model_dump(),
+        }
+
+    @app.delete(
+        "/v1/admin/backends/{backend_id}",
+        summary="Delete an LLM backend service",
+        tags=["Admin"],
+    )
+    async def delete_backend(backend_id: str):
+        target_idx = next(
+            (i for i, b in enumerate(app.state.backends) if b.id == backend_id), None
+        )
+        if target_idx is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Backend '{backend_id}' not found",
+            )
+
+        deleted = app.state.backends.pop(target_idx)
+        app.state.backend_clients.pop(backend_id, None)
+        app.state.health_monitor.update_backends(app.state.backends)
+        app.state.routing_engine.update_config(
+            app.state.backends, app.state.policies, app.state.backend_clients
+        )
+
+        if hasattr(app.state, "local_fleet") and app.state.local_fleet and getattr(app.state.local_fleet, "routing_engine", None):
+            app.state.local_fleet.routing_engine.update_config(
+                app.state.backends, app.state.policies, app.state.backend_clients
+            )
+
+        try:
+            save_backends_config(app.state.backends, app.state.settings.backends_config_path)
+        except Exception as e:
+            logger.warning(f"Failed to persist backends configuration: {e}")
+
+        return {
+            "message": f"Backend '{backend_id}' deleted successfully",
+            "deleted_id": backend_id,
+        }
 
     @app.post(
         "/v1/admin/backends/{backend_id}/probe",

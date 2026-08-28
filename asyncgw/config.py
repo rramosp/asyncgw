@@ -259,3 +259,16 @@ def load_asyncgw_config(file_path: Optional[str] = None) -> AsyncGWConfig:
 
     return AsyncGWConfig(**config_dict)
 
+
+
+def save_backends_config(backends: List[BackendConfig], file_path: Optional[str] = None) -> None:
+    """Save backend configurations to YAML file."""
+    path = Path(file_path or os.getenv("BACKENDS_CONFIG_PATH", "config/backends.yaml"))
+    if not path.is_absolute():
+        base_dir = Path(__file__).resolve().parent.parent
+        path = base_dir / path
+
+    raw_data = {"backends": [b.model_dump(exclude_none=True) for b in backends]}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(raw_data, f, default_flow_style=False, sort_keys=False, indent=2)

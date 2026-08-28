@@ -30,7 +30,7 @@ from asyncgw.storage.memory_mock import InMemoryBlobStorage, InMemoryRequestTrac
 
 
 @pytest.fixture
-def test_settings() -> GatewaySettings:
+def test_settings(tmp_path) -> GatewaySettings:
     return GatewaySettings(
         project_id="test-project",
         location="us-central1",
@@ -38,6 +38,8 @@ def test_settings() -> GatewaySettings:
         bq_table="request_tracker",
         gcs_bucket_name="test-responses-bucket",
         environment_mode="mock",
+        backends_config_path=str(tmp_path / "test_backends.yaml"),
+        policies_config_path=str(tmp_path / "test_policies.yaml"),
     )
 
 

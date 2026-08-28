@@ -523,3 +523,144 @@ async def test_get_request_status_metadata_policy_and_backends_tried(app_and_cli
 
     # User tags preserved
     assert meta["user_id"] == "alice_123"
+
+
+@pytest.mark.asyncio
+async def test_admin_backends_crud_operations(app_and_client):
+    app, client, tracker, storage, producer, consumer, q1, q2, q3 = app_and_client
+
+    # 1. Create a new backend service
+    new_backend_payload = {
+        "id": "anthropic-claude-test",
+        "name": "Anthropic Claude API",
+        "description": "Direct Anthropic Claude 3.5 Sonnet endpoint",
+        "endpoint_url": "mock://internal/anthropic/v1",
+        "auth": {
+            "type": "api_key",
+            "secret_env": "ANTHROPIC_API_KEY",
+            "header_name": "x-api-key",
+            "header_prefix": ""
+        },
+        "capabilities": {
+            "supports_online": True,
+            "supports_batch": False,
+            "max_batch_size": 1,
+            "concurrency_limit": 60
+        },
+        "health_check": {
+            "endpoint_url": "mock://internal/anthropic/health",
+            "method": "GET",
+            "interval_seconds": 20,
+            "timeout_seconds": 3,
+            "expected_status": 200,
+            "max_consecutive_failures": 3
+        },
+        "supported_models": ["claude-3-5-sonnet", "claude-3-opus"],
+        "cost_tier": "high",
+        "priority_weight": 85,
+        "is_active": True
+    }
+
+    create_res = await client.post("/v1/admin/backends", json=new_backend_payload)
+    assert create_res.status_code == 201
+    res_data = create_res.json()
+    assert res_data["backend"]["id"] == "anthropic-claude-test"
+    assert res_data["backend"]["priority_weight"] == 85
+
+    # 2. Duplicate create fails with 400
+    dup_res = await client.post("/v1/admin/backends", json=new_backend_payload)
+    assert dup_res.status_code == 400
+    assert "already exists" in dup_res.json()["detail"]
+
+    # 3. Retrieve single backend
+    get_res = await client.get("/v1/admin/backends/anthropic-claude-test")
+    assert get_res.status_code == 200
+    b_data = get_res.json()
+    assert b_data["config"]["id"] == "anthropic-claude-test"
+    assert b_data["config"]["cost_tier"] == "high"
+    assert "health" in b_data
+
+    # 4. Unknown backend returns 404
+    unknown_get = await client.get("/v1/admin/backends/non-existent-backend")
+    assert unknown_get.status_code == 404
+
+    # 5. Update backend
+    updated_payload = dict(new_backend_payload)
+    updated_payload["name"] = "Anthropic Claude API (Updated)"
+    updated_payload["cost_tier"] = "medium"
+    updated_payload["priority_weight"] = 92
+    updated_payload["supported_models"] = ["claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
+
+    put_res = await client.put("/v1/admin/backends/anthropic-claude-test", json=updated_payload)
+    assert put_res.status_code == 200
+    put_data = put_res.json()
+    assert put_data["backend"]["name"] == "Anthropic Claude API (Updated)"
+    assert put_data["backend"]["priority_weight"] == 92
+    assert len(put_data["backend"]["supported_models"]) == 3
+
+    # Verify update in GET
+    verify_res = await client.get("/v1/admin/backends/anthropic-claude-test")
+    assert verify_res.status_code == 200
+    assert verify_res.json()["config"]["priority_weight"] == 92
+
+    # 6. Update unknown backend returns 404
+    unknown_put = await client.put("/v1/admin/backends/non-existent-backend", json=updated_payload)
+    assert unknown_put.status_code == 404
+
+    # 7. Probe the newly added backend
+    probe_res = await client.post("/v1/admin/backends/anthropic-claude-test/probe")
+    assert probe_res.status_code == 200
+    assert probe_res.json()["status"]["is_healthy"] is True
+
+    # 8. Delete backend
+    del_res = await client.delete("/v1/admin/backends/anthropic-claude-test")
+    assert del_res.status_code == 200
+    assert del_res.json()["deleted_id"] == "anthropic-claude-test"
+
+    # Verify 404 after deletion
+    post_del_get = await client.get("/v1/admin/backends/anthropic-claude-test")
+    assert post_del_get.status_code == 404
+
+    # 9. Delete unknown backend returns 404
+    unknown_del = await client.delete("/v1/admin/backends/non-existent-backend")
+    assert unknown_del.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_ui_dashboard_backend_management_elements(app_and_client):
+    from asyncgw.ui.app import create_ui_app
+    app, client, tracker, storage, producer, consumer, q1, q2, q3 = app_and_client
+
+    ui_app = create_ui_app(app)
+    from httpx import ASGITransport, AsyncClient
+    async with AsyncClient(transport=ASGITransport(app=ui_app), base_url="http://test") as ui_client:
+        res = await ui_client.get("/")
+        assert res.status_code == 200
+        html = res.text
+
+        # Verify Backends View Elements
+        assert 'id="view-backends"' in html
+        assert 'id="backends-grid"' in html
+        assert 'id="backend-search-input"' in html
+        assert 'openAddBackendModal' in html
+        assert 'openEditBackendModal' in html
+        assert 'openDeleteBackendModal' in html
+        assert 'probeAllBackends' in html
+
+        # Verify Add/Edit Modal
+        assert 'id="modal-backend-form"' in html
+        assert 'id="backend-id-input"' in html
+        assert 'id="backend-name-input"' in html
+        assert 'id="backend-endpoint-input"' in html
+        assert 'id="backend-cost-tier-input"' in html
+        assert 'id="backend-priority-input"' in html
+        assert 'id="backend-models-input"' in html
+        assert 'applyBackendPreset' in html
+        assert 'saveBackendSubmit' in html
+
+        # Verify Delete Modal
+        assert 'id="modal-backend-delete"' in html
+        assert 'confirmDeleteBackend' in html
+
+        # Verify Toast Container
+        assert 'id="toast-container"' in html

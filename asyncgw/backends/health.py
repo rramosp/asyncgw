@@ -38,9 +38,13 @@ class HealthMonitor:
     def update_backends(self, backends: List[BackendConfig]) -> None:
         """Update backend configurations and initialize new health status if needed."""
         self.backends_map = {b.id: b for b in backends}
+        new_statuses = {}
         for b in backends:
-            if b.id not in self.health_statuses:
-                self.health_statuses[b.id] = BackendHealthStatus(backend_id=b.id, is_healthy=True)
+            if b.id in self.health_statuses:
+                new_statuses[b.id] = self.health_statuses[b.id]
+            else:
+                new_statuses[b.id] = BackendHealthStatus(backend_id=b.id, is_healthy=True)
+        self.health_statuses = new_statuses
 
     def is_backend_available(self, backend_id: str) -> bool:
         """Check if a backend is configured active and currently passing health checks."""

@@ -255,17 +255,78 @@ DASHBOARD_HTML = r"""
             </div>
         </section>
 
-        <!-- TAB: BACKENDS -->
-        <section id="view-backends" class="hidden space-y-4">
-            <div class="flex justify-between items-center">
+                <!-- TAB: BACKENDS -->
+        <section id="view-backends" class="hidden space-y-6">
+            <!-- Header with controls and actions -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                 <div>
-                    <h2 class="text-lg font-bold">Registered LLM Backend Services</h2>
-                    <p class="text-xs text-slate-400">Configured in backends.yaml. Health probes and availability criteria dictate queue dispatching.</p>
+                    <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-server text-indigo-400"></i> Registered LLM Backend Services
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Manage, configure, and monitor Vertex AI, OpenAI, and custom model inference endpoints.</p>
                 </div>
-                <button onclick="probeAllBackends()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center gap-2">
-                    <i class="fa-solid fa-stethoscope"></i> Probe All Endpoints
-                </button>
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <button onclick="openAddBackendModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 transition flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Add Backend Service
+                    </button>
+                    <button onclick="probeAllBackends()" id="probe-all-btn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center gap-2">
+                        <i class="fa-solid fa-stethoscope text-indigo-400"></i> Probe All Endpoints
+                    </button>
+                    <button onclick="loadBackends()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5" title="Refresh backend list">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                </div>
             </div>
+
+            <!-- Backend Metrics / Stats Summary -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400 text-base">
+                        <i class="fa-solid fa-cubes"></i>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Total Backends</div>
+                        <div id="backend-stat-total" class="text-xl font-bold text-slate-100">0</div>
+                    </div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-950 border border-emerald-800/60 flex items-center justify-center text-emerald-400 text-base">
+                        <i class="fa-solid fa-heart-pulse"></i>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Healthy</div>
+                        <div id="backend-stat-healthy" class="text-xl font-bold text-emerald-400">0</div>
+                    </div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-blue-950 border border-blue-800/60 flex items-center justify-center text-blue-400 text-base">
+                        <i class="fa-solid fa-toggle-on"></i>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Active Routing</div>
+                        <div id="backend-stat-active" class="text-xl font-bold text-blue-400">0</div>
+                    </div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-purple-950 border border-purple-800/60 flex items-center justify-center text-purple-400 text-base">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Batch Capable</div>
+                        <div id="backend-stat-batch" class="text-xl font-bold text-purple-400">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div class="flex items-center gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                    <input type="text" id="backend-search-input" oninput="filterAndRenderBackends()" placeholder="Filter backends by name, ID, model, cost tier, or endpoint URL..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+                </div>
+            </div>
+
+            <!-- Backends Grid -->
             <div id="backends-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Dynamically filled -->
             </div>
@@ -965,6 +1026,252 @@ DASHBOARD_HTML = r"""
         </div>
     </div>
 
+        <!-- Add / Edit Backend Modal -->
+    <div id="modal-backend-form" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <i class="fa-solid fa-server" id="modal-backend-icon"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-slate-100" id="modal-backend-title">Add Backend Service</h3>
+                        <p class="text-xs text-slate-400" id="modal-backend-subtitle">Configure an LLM provider endpoint for the gateway</p>
+                    </div>
+                </div>
+                <button onclick="closeBackendFormModal()" class="text-slate-400 hover:text-slate-200 text-xl font-bold p-1">&times;</button>
+            </div>
+
+            <!-- Modal Content (Scrollable) -->
+            <div class="overflow-y-auto flex-1 space-y-4 pr-1">
+                <!-- Presets selection banner (Visible in Add mode) -->
+                <div id="backend-presets-container" class="bg-slate-950/80 border border-indigo-900/40 rounded-xl p-3.5 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> Quick Template Fill
+                        </span>
+                        <span class="text-[10px] text-slate-400">Click to autofill common provider setups</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" onclick="applyBackendPreset('gcp-provisioned')" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs text-slate-300 hover:text-white transition flex items-center gap-1.5">
+                            <i class="fa-brands fa-google text-blue-400"></i> Vertex Provisioned Gemini
+                        </button>
+                        <button type="button" onclick="applyBackendPreset('gemini-flex')" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs text-slate-300 hover:text-white transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-bolt text-amber-400"></i> Vertex Gemini Flex
+                        </button>
+                        <button type="button" onclick="applyBackendPreset('openai')" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs text-slate-300 hover:text-white transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-cube text-emerald-400"></i> OpenAI Direct API
+                        </button>
+                        <button type="button" onclick="applyBackendPreset('vllm')" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs text-slate-300 hover:text-white transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-microchip text-purple-400"></i> Custom vLLM / Ollama
+                        </button>
+                        <button type="button" onclick="applyBackendPreset('mock')" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs text-slate-300 hover:text-white transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-flask text-teal-400"></i> Mock Backend
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error Alert Box -->
+                <div id="backend-form-error" class="hidden bg-rose-950/80 border border-rose-800 rounded-xl p-3.5 text-xs text-rose-300 flex items-start gap-2.5">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-400 mt-0.5"></i>
+                    <div id="backend-form-error-msg"></div>
+                </div>
+
+                <form id="backend-form" onsubmit="event.preventDefault(); saveBackendSubmit();" class="space-y-4">
+                    <!-- SECTION 1: Identity -->
+                    <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 space-y-3">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-id-card text-indigo-400"></i> Service Identification
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Backend ID <span class="text-rose-400">*</span></label>
+                                <input type="text" id="backend-id-input" required pattern="[a-zA-Z0-9_-]+" placeholder="e.g. gcp-provisioned-gemini" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <p id="backend-id-hint" class="text-[10px] text-slate-500 mt-0.5">Unique identifier used in routing and policies.</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Display Name <span class="text-rose-400">*</span></label>
+                                <input type="text" id="backend-name-input" required placeholder="e.g. GCP Provisioned Throughput (Gemini)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
+                            <input type="text" id="backend-desc-input" placeholder="e.g. Dedicated high-throughput Vertex AI endpoint for enterprise workloads" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div class="flex items-center gap-2 pt-1">
+                            <input type="checkbox" id="backend-active-input" checked class="w-4 h-4 text-indigo-600 rounded bg-slate-900 border-slate-700 focus:ring-0">
+                            <label for="backend-active-input" class="text-xs text-slate-300 font-medium cursor-pointer">Enable Service (Active for routing decisions)</label>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 2: Endpoint & Auth -->
+                    <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 space-y-3">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-network-wired text-indigo-400"></i> Endpoint & Authentication
+                        </h4>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Endpoint URL <span class="text-rose-400">*</span></label>
+                            <input type="text" id="backend-endpoint-input" required placeholder="https://us-central1-aiplatform.googleapis.com/v1/projects//locations/us-central1/publishers/google/models" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Auth Type</label>
+                                <select id="backend-auth-type-input" onchange="toggleAuthFields()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                                    <option value="none">None / Public / Mock</option>
+                                    <option value="google_adc">Google Application Default Credentials (ADC)</option>
+                                    <option value="api_key">API Key (Environment Variable)</option>
+                                    <option value="bearer_token">Bearer Token</option>
+                                </select>
+                            </div>
+                            <div id="auth-secret-env-container">
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Secret Environment Variable</label>
+                                <input type="text" id="backend-secret-env-input" placeholder="e.g. OPENAI_API_KEY" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                        <div id="auth-extra-fields" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Audience (Google ADC)</label>
+                                <input type="text" id="backend-audience-input" placeholder="https://aiplatform.googleapis.com/" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Header Name</label>
+                                <input type="text" id="backend-header-name-input" value="Authorization" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Header Prefix</label>
+                                <input type="text" id="backend-header-prefix-input" value="Bearer " class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 3: Capabilities & Routing -->
+                    <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 space-y-3">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-sliders text-indigo-400"></i> Capabilities & Routing Weight
+                        </h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Cost Tier</label>
+                                <select id="backend-cost-tier-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                                    <option value="low">Low (Cost Optimized)</option>
+                                    <option value="medium" selected>Medium (Standard)</option>
+                                    <option value="high">High (Premium / Direct)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Priority Weight (1-100)</label>
+                                <input type="number" id="backend-priority-input" min="1" max="100" value="50" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Max Batch Size</label>
+                                <input type="number" id="backend-max-batch-input" min="1" value="1000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Concurrency Limit</label>
+                                <input type="number" id="backend-concurrency-input" min="1" value="50" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-6 pt-1">
+                            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="backend-supports-online-input" checked class="w-4 h-4 text-indigo-600 rounded bg-slate-900 border-slate-700 focus:ring-0">
+                                Supports Online Inference
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="backend-supports-batch-input" class="w-4 h-4 text-indigo-600 rounded bg-slate-900 border-slate-700 focus:ring-0">
+                                Supports Native Batch Processing
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 4: Supported Models -->
+                    <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 space-y-2">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-microchip text-indigo-400"></i> Supported Models
+                        </h4>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Model Identifiers (comma separated)</label>
+                            <input type="text" id="backend-models-input" placeholder="e.g. gemini-2.0-flash, gemini-1.5-pro, text-embedding-004" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                            <p class="text-[10px] text-slate-500 mt-0.5">Requests specifying these model names will route to this backend service.</p>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 5: Health Check Probe -->
+                    <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 space-y-3">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-heart-pulse text-indigo-400"></i> Health Check Probe Specification
+                        </h4>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Health Check URL <span class="text-rose-400">*</span></label>
+                            <input type="text" id="backend-health-url-input" required placeholder="e.g. https://us-central1-aiplatform.googleapis.com/v1/projects//locations/us-central1/endpoints" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">HTTP Method</label>
+                                <select id="backend-health-method-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                                    <option value="GET">GET</option>
+                                    <option value="POST">POST</option>
+                                    <option value="HEAD">HEAD</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Interval (sec)</label>
+                                <input type="number" id="backend-health-interval-input" min="1" value="30" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Timeout (sec)</label>
+                                <input type="number" id="backend-health-timeout-input" min="1" value="5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Max Failures</label>
+                                <input type="number" id="backend-health-max-fail-input" min="1" value="3" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex justify-between items-center pt-3 border-t border-slate-800">
+                <button type="button" onclick="closeBackendFormModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg text-slate-300 transition">
+                    Cancel
+                </button>
+                <button type="button" id="backend-form-submit-btn" onclick="saveBackendSubmit()" class="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-indigo-500/20 transition flex items-center gap-2">
+                    <span id="backend-submit-text">Save Backend</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Backend Confirmation Modal -->
+    <div id="modal-backend-delete" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-rose-950 border border-rose-800 flex items-center justify-center text-rose-400 text-lg">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-slate-100">Delete Backend Service</h3>
+                    <p class="text-xs text-slate-400">Confirm service removal from gateway</p>
+                </div>
+            </div>
+            <div class="space-y-2 text-xs text-slate-300 bg-slate-950/80 p-4 rounded-xl border border-slate-800">
+                <p>Are you sure you want to delete backend <span id="delete-backend-display-name" class="font-bold text-slate-100"></span> (<span id="delete-backend-id" class="font-mono text-indigo-400"></span>)?</p>
+                <p class="text-amber-400 text-[11px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i> This will immediately remove this backend from active routing strategies and update <b>config/backends.yaml</b>.</p>
+            </div>
+            <div id="delete-backend-error" class="hidden bg-rose-950 border border-rose-800 rounded-lg p-2.5 text-xs text-rose-300"></div>
+            <div class="flex justify-end gap-2.5 pt-2">
+                <button onclick="closeDeleteBackendModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg text-slate-300">Cancel</button>
+                <button id="delete-backend-confirm-btn" onclick="confirmDeleteBackend()" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-rose-600/30 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-trash-can"></i> Delete Service
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
     <script>
         let currentTab = 'explorer';
         let pollInterval = null;
@@ -1530,62 +1837,753 @@ DASHBOARD_HTML = r"""
             pollInterval = setInterval(pollFn, 1000);
         }
 
+                let cachedBackends = [];
+        let backendFormMode = 'add'; // 'add' or 'edit'
+        let backendDeleteTargetId = null;
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-3 rounded-xl border shadow-xl flex items-center gap-2.5 text-xs text-slate-100 font-medium transition-all duration-300 transform translate-y-2 pointer-events-auto ${
+                type === 'success' ? 'bg-emerald-950/90 border-emerald-700 text-emerald-300' :
+                type === 'error' ? 'bg-rose-950/90 border-rose-700 text-rose-300' :
+                'bg-slate-900/90 border-slate-700 text-slate-200'
+            }`;
+            const icon = type === 'success' ? 'fa-circle-check text-emerald-400' :
+                         type === 'error' ? 'fa-circle-exclamation text-rose-400' :
+                         'fa-circle-info text-indigo-400';
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2');
+                toast.classList.add('translate-y-0');
+            });
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Endpoint URL copied to clipboard', 'info');
+            }).catch(e => {
+                console.error('Clipboard error', e);
+            });
+        }
+
         async function loadBackends() {
             try {
                 const res = await fetch('/v1/admin/backends');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
-                const container = document.getElementById('backends-grid');
-                container.innerHTML = data.backends.map(item => {
-                    const b = item.config;
-                    const h = item.health;
-                    const isHealthy = h.is_healthy;
-                    const healthBadge = isHealthy 
-                        ? '<span class="text-emerald-400 text-xs font-semibold bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded">Healthy</span>'
-                        : '<span class="text-rose-400 text-xs font-semibold bg-rose-950 border border-rose-800 px-2 py-0.5 rounded">Unhealthy</span>';
+                cachedBackends = data.backends || [];
+                
+                // Update metrics
+                const totalCount = cachedBackends.length;
+                const healthyCount = cachedBackends.filter(item => item.health && item.health.is_healthy).length;
+                const activeCount = cachedBackends.filter(item => item.config && item.config.is_active !== false).length;
+                const batchCount = cachedBackends.filter(item => item.config && item.config.capabilities && item.config.capabilities.supports_batch).length;
 
-                    return `
-                        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <h3 class="font-bold text-slate-100">${b.name}</h3>
-                                    <span class="mono text-xs text-indigo-400">${b.id}</span>
-                                </div>
-                                ${healthBadge}
-                            </div>
-                            <p class="text-xs text-slate-400">${b.description || ''}</p>
-                            <div class="text-xs space-y-1 text-slate-300 border-t border-slate-800/80 pt-2">
-                                <div><span class="text-slate-500">Endpoint:</span> <span class="mono text-[11px]">${b.endpoint_url}</span></div>
-                                <div><span class="text-slate-500">Capabilities:</span> Online: ${b.capabilities.supports_online ? 'Yes' : 'No'} | Batch: ${b.capabilities.supports_batch ? 'Yes' : 'No'}</div>
-                                <div><span class="text-slate-500">Priority Weight:</span> ${b.priority_weight} | Cost Tier: <span class="uppercase font-semibold">${b.cost_tier}</span></div>
-                                <div><span class="text-slate-500">Supported Models:</span> ${(b.supported_models || []).join(', ')}</div>
-                            </div>
-                            <div class="pt-2 flex justify-end">
-                                <button onclick="probeBackend('${b.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs text-slate-300 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-heart-pulse"></i> Probe Health
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                const elTotal = document.getElementById('backend-stat-total');
+                if (elTotal) elTotal.innerText = totalCount;
+                const elHealthy = document.getElementById('backend-stat-healthy');
+                if (elHealthy) elHealthy.innerText = healthyCount;
+                const elActive = document.getElementById('backend-stat-active');
+                if (elActive) elActive.innerText = activeCount;
+                const elBatch = document.getElementById('backend-stat-batch');
+                if (elBatch) elBatch.innerText = batchCount;
+
+                updateModelSuggestions();
+                filterAndRenderBackends();
             } catch(e) {
-                console.error("Backends load error", e);
+                console.error('Backends load error', e);
+                showToast('Failed to load backend services: ' + e.message, 'error');
             }
         }
 
-        async function probeBackend(id) {
+        function updateModelSuggestions() {
+            const datalist = document.getElementById('model-suggestions');
+            if (!datalist || !cachedBackends) return;
+            
+            const optionsMap = new Map();
+            cachedBackends.forEach(item => {
+                const b = item.config;
+                if (!b) return;
+                optionsMap.set(b.id, `${b.id} (${b.name})`);
+                (b.supported_models || []).forEach(m => {
+                    if (!optionsMap.has(m)) {
+                        optionsMap.set(m, `${m} (Served by ${b.name})`);
+                    }
+                });
+            });
+
+            if (optionsMap.size > 0) {
+                datalist.innerHTML = Array.from(optionsMap.entries()).map(([val, label]) => 
+                    `<option value="${escapeHtml(val)}">${escapeHtml(label)}</option>`
+                ).join('');
+            }
+        }
+
+        function filterAndRenderBackends() {
+            const container = document.getElementById('backends-grid');
+            if (!container) return;
+
+            const searchInput = document.getElementById('backend-search-input');
+            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+            const filtered = cachedBackends.filter(item => {
+                if (!query) return true;
+                const b = item.config;
+                if (!b) return false;
+                const matchId = (b.id || '').toLowerCase().includes(query);
+                const matchName = (b.name || '').toLowerCase().includes(query);
+                const matchDesc = (b.description || '').toLowerCase().includes(query);
+                const matchEndpoint = (b.endpoint_url || '').toLowerCase().includes(query);
+                const matchCost = (b.cost_tier || '').toLowerCase().includes(query);
+                const matchModels = (b.supported_models || []).some(m => m.toLowerCase().includes(query));
+                return matchId || matchName || matchDesc || matchEndpoint || matchCost || matchModels;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full bg-slate-900/40 border border-slate-800/80 rounded-2xl p-12 text-center space-y-3">
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-950/60 border border-indigo-800/50 flex items-center justify-center text-indigo-400 mx-auto text-xl">
+                            <i class="fa-solid fa-server"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-200">${query ? 'No backend services matched your filter' : 'No backend services configured'}</h3>
+                        <p class="text-xs text-slate-400 max-w-md mx-auto">${query ? 'Try searching for a different keyword or reset the filter search.' : 'Add your first LLM backend service (Vertex AI Provisioned, Gemini Flex, OpenAI, or Custom) to enable queued asynchronous inference.'}</p>
+                        ${query ? `
+                            <button onclick="document.getElementById('backend-search-input').value=''; filterAndRenderBackends();" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-200">
+                                Clear Search Filter
+                            </button>
+                        ` : `
+                            <button onclick="openAddBackendModal()" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-500/20">
+                                <i class="fa-solid fa-plus mr-1"></i> Add Backend Service
+                            </button>
+                        `}
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => {
+                const b = item.config;
+                const h = item.health || { is_healthy: true };
+                const isHealthy = h.is_healthy;
+                const isActive = b.is_active !== false;
+
+                // Health Badge
+                let healthBadgeHtml = '';
+                if (isHealthy) {
+                    const latencyText = h.last_latency_ms ? ` (${h.last_latency_ms.toFixed(1)}ms)` : '';
+                    healthBadgeHtml = `<span class="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-semibold bg-emerald-950/80 border border-emerald-800/80 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Healthy${latencyText}</span>`;
+                } else {
+                    const errSnippet = h.last_error ? ` title="${escapeHtml(h.last_error)}"` : '';
+                    healthBadgeHtml = `<span${errSnippet} class="inline-flex items-center gap-1.5 text-rose-400 text-xs font-semibold bg-rose-950/80 border border-rose-800/80 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Unhealthy</span>`;
+                }
+
+                // Active Badge
+                const activeBadgeHtml = isActive
+                    ? `<span class="text-blue-400 text-[10px] font-semibold bg-blue-950/80 border border-blue-800/60 px-2 py-0.5 rounded-md uppercase tracking-wider">Active</span>`
+                    : `<span class="text-amber-400 text-[10px] font-semibold bg-amber-950/80 border border-amber-800/60 px-2 py-0.5 rounded-md uppercase tracking-wider">Inactive</span>`;
+
+                // Cost Tier styling
+                const costTier = (b.cost_tier || 'medium').toLowerCase();
+                const costTierBadge = costTier === 'low'
+                    ? '<span class="text-emerald-400 font-bold">LOW</span>'
+                    : costTier === 'high'
+                    ? '<span class="text-amber-400 font-bold">HIGH</span>'
+                    : '<span class="text-blue-400 font-bold">MEDIUM</span>';
+
+                // Auth Type
+                const authType = b.auth ? b.auth.type : 'none';
+                let authLabel = authType;
+                if (authType === 'google_adc') authLabel = 'Google ADC';
+                else if (authType === 'api_key') authLabel = `API Key (${b.auth?.secret_env || 'Header'})`;
+                else if (authType === 'bearer_token') authLabel = 'Bearer Token';
+                else if (authType === 'none') authLabel = 'None (Public/Mock)';
+
+                // Supported models pills
+                const models = b.supported_models || [];
+                const modelsHtml = models.length > 0
+                    ? models.map(m => `<span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-[11px] font-mono text-indigo-300">${escapeHtml(m)}</span>`).join('')
+                    : '<span class="text-slate-500 italic text-xs">Any / unconstrained</span>';
+
+                const safeId = encodeURIComponent(b.id);
+                const safeName = encodeURIComponent(b.name || b.id);
+                const endpointEscaped = escapeHtml(b.endpoint_url || '');
+
+                return `
+                    <div class="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 transition-all rounded-2xl p-5 space-y-4 shadow-lg flex flex-col justify-between">
+                        <div class="space-y-3">
+                            <!-- Card Header -->
+                            <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-3">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-bold text-sm text-slate-100">${escapeHtml(b.name)}</h3>
+                                        ${activeBadgeHtml}
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="mono text-xs text-indigo-400 font-medium">${escapeHtml(b.id)}</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    ${healthBadgeHtml}
+                                </div>
+                            </div>
+
+                            <!-- Description -->
+                            <p class="text-xs text-slate-400 line-clamp-2">${escapeHtml(b.description || 'No description provided for this backend.')}</p>
+
+                            <!-- Specifications Grid -->
+                            <div class="grid grid-cols-1 gap-2.5 text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-slate-500 font-medium shrink-0">Endpoint:</span>
+                                    <div class="flex items-center gap-1.5 overflow-hidden">
+                                        <span class="mono text-[11px] text-slate-300 truncate max-w-[260px]" title="${endpointEscaped}">${endpointEscaped}</span>
+                                        <button onclick="copyToClipboard('${endpointEscaped.replace(/'/g, "\'")}')" class="text-slate-500 hover:text-slate-300 text-xs shrink-0 p-1" title="Copy endpoint URL">
+                                            <i class="fa-regular fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-500 font-medium">Authentication:</span>
+                                    <span class="font-mono text-[11px] text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">${escapeHtml(authLabel)}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-500 font-medium">Capabilities:</span>
+                                    <span class="text-slate-300 flex items-center gap-2">
+                                        <span class="${b.capabilities?.supports_online ? 'text-emerald-400' : 'text-slate-500'}">Online: ${b.capabilities?.supports_online ? 'Yes' : 'No'}</span>
+                                        <span class="text-slate-600">|</span>
+                                        <span class="${b.capabilities?.supports_batch ? 'text-purple-400 font-medium' : 'text-slate-400'}">Batch: ${b.capabilities?.supports_batch ? 'Native' : 'Decomposed'}</span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-500 font-medium">Limits:</span>
+                                    <span class="text-slate-300">Max Batch: <span class="mono text-indigo-300 font-semibold">${b.capabilities?.max_batch_size || 1}</span> &bull; Concurrency: <span class="mono text-indigo-300 font-semibold">${b.capabilities?.concurrency_limit || 50}</span></span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-500 font-medium">Routing Priority / Cost:</span>
+                                    <span class="text-slate-300">Weight: <span class="mono font-semibold text-slate-100">${b.priority_weight ?? 50}</span> &bull; Tier: ${costTierBadge}</span>
+                                </div>
+                            </div>
+
+                            <!-- Models List -->
+                            <div class="space-y-1.5">
+                                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Supported Models:</span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    ${modelsHtml}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Footer / Actions -->
+                        <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                            <button onclick="probeBackend('${safeId}')" id="probe-btn-${safeId}" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-heart-pulse text-indigo-400"></i> Probe Health
+                            </button>
+                            <div class="flex items-center gap-2">
+                                <button onclick="openEditBackendModal('${safeId}')" class="px-3 py-1.5 bg-indigo-950/70 hover:bg-indigo-900/80 border border-indigo-800 text-indigo-300 hover:text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                                </button>
+                                <button onclick="openDeleteBackendModal('${safeId}', '${safeName}')" class="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/70 border border-rose-900/60 text-rose-400 hover:text-rose-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-trash-can"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleAuthFields() {
+            const authType = document.getElementById('backend-auth-type-input').value;
+            const secretContainer = document.getElementById('auth-secret-env-container');
+            const extraFields = document.getElementById('auth-extra-fields');
+            
+            if (authType === 'api_key' || authType === 'bearer_token') {
+                if (secretContainer) secretContainer.classList.remove('hidden');
+                if (extraFields) extraFields.classList.remove('hidden');
+            } else if (authType === 'google_adc') {
+                if (secretContainer) secretContainer.classList.add('hidden');
+                if (extraFields) extraFields.classList.remove('hidden');
+            } else {
+                if (secretContainer) secretContainer.classList.add('hidden');
+                if (extraFields) extraFields.classList.add('hidden');
+            }
+        }
+
+        function openAddBackendModal() {
+            backendFormMode = 'add';
+            const modal = document.getElementById('modal-backend-form');
+            if (!modal) return;
+
+            document.getElementById('modal-backend-title').innerText = 'Add New Backend Service';
+            document.getElementById('modal-backend-subtitle').innerText = 'Register an LLM provider endpoint for the gateway';
+            document.getElementById('backend-submit-text').innerText = 'Create Backend Service';
+            
+            const presets = document.getElementById('backend-presets-container');
+            if (presets) presets.classList.remove('hidden');
+
+            const idInput = document.getElementById('backend-id-input');
+            idInput.value = '';
+            idInput.disabled = false;
+            idInput.readOnly = false;
+            idInput.className = 'w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500';
+            
+            const hint = document.getElementById('backend-id-hint');
+            if (hint) hint.innerText = 'Unique identifier used in routing and policies (a-z, 0-9, dash, underscore).';
+
+            // Reset form fields to clean defaults
+            document.getElementById('backend-name-input').value = '';
+            document.getElementById('backend-desc-input').value = '';
+            document.getElementById('backend-active-input').checked = true;
+            document.getElementById('backend-endpoint-input').value = '';
+            document.getElementById('backend-auth-type-input').value = 'google_adc';
+            document.getElementById('backend-secret-env-input').value = '';
+            document.getElementById('backend-audience-input').value = 'https://aiplatform.googleapis.com/';
+            document.getElementById('backend-header-name-input').value = 'Authorization';
+            document.getElementById('backend-header-prefix-input').value = 'Bearer ';
+            document.getElementById('backend-cost-tier-input').value = 'low';
+            document.getElementById('backend-priority-input').value = '100';
+            document.getElementById('backend-max-batch-input').value = '10000';
+            document.getElementById('backend-concurrency-input').value = '100';
+            document.getElementById('backend-supports-online-input').checked = true;
+            document.getElementById('backend-supports-batch-input').checked = true;
+            document.getElementById('backend-models-input').value = 'gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash, text-embedding-004';
+            document.getElementById('backend-health-url-input').value = 'https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/endpoints';
+            document.getElementById('backend-health-method-input').value = 'GET';
+            document.getElementById('backend-health-interval-input').value = '30';
+            document.getElementById('backend-health-timeout-input').value = '5';
+            document.getElementById('backend-health-max-fail-input').value = '3';
+
+            const errBox = document.getElementById('backend-form-error');
+            if (errBox) errBox.classList.add('hidden');
+
+            toggleAuthFields();
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function openEditBackendModal(encodedId) {
+            backendFormMode = 'edit';
+            const id = decodeURIComponent(encodedId);
+            const modal = document.getElementById('modal-backend-form');
+            if (!modal) return;
+
+            const item = cachedBackends.find(i => i.config && i.config.id === id);
+            if (!item || !item.config) {
+                showToast(`Backend '${id}' not found`, 'error');
+                return;
+            }
+            const b = item.config;
+
+            document.getElementById('modal-backend-title').innerText = 'Edit Backend Service';
+            document.getElementById('modal-backend-subtitle').innerText = `Modify configuration for ${b.name || b.id}`;
+            document.getElementById('backend-submit-text').innerText = 'Save Changes';
+
+            const presets = document.getElementById('backend-presets-container');
+            if (presets) presets.classList.add('hidden');
+
+            const idInput = document.getElementById('backend-id-input');
+            idInput.value = b.id;
+            idInput.disabled = true;
+            idInput.readOnly = true;
+            idInput.className = 'w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-400 cursor-not-allowed';
+
+            const hint = document.getElementById('backend-id-hint');
+            if (hint) hint.innerText = 'Backend ID is locked in edit mode to preserve routing policy integrity.';
+
+            // Populate form fields
+            document.getElementById('backend-name-input').value = b.name || '';
+            document.getElementById('backend-desc-input').value = b.description || '';
+            document.getElementById('backend-active-input').checked = b.is_active !== false;
+            document.getElementById('backend-endpoint-input').value = b.endpoint_url || '';
+            
+            const auth = b.auth || {};
+            document.getElementById('backend-auth-type-input').value = auth.type || 'none';
+            document.getElementById('backend-secret-env-input').value = auth.secret_env || '';
+            document.getElementById('backend-audience-input').value = auth.audience || '';
+            document.getElementById('backend-header-name-input').value = auth.header_name || 'Authorization';
+            document.getElementById('backend-header-prefix-input').value = auth.header_prefix || 'Bearer ';
+            
+            document.getElementById('backend-cost-tier-input').value = (b.cost_tier || 'medium').toLowerCase();
+            document.getElementById('backend-priority-input').value = b.priority_weight ?? 50;
+            
+            const cap = b.capabilities || {};
+            document.getElementById('backend-max-batch-input').value = cap.max_batch_size ?? 1000;
+            document.getElementById('backend-concurrency-input').value = cap.concurrency_limit ?? 50;
+            document.getElementById('backend-supports-online-input').checked = cap.supports_online !== false;
+            document.getElementById('backend-supports-batch-input').checked = cap.supports_batch === true;
+            
+            document.getElementById('backend-models-input').value = (b.supported_models || []).join(', ');
+            
+            const hc = b.health_check || {};
+            document.getElementById('backend-health-url-input').value = hc.endpoint_url || '';
+            document.getElementById('backend-health-method-input').value = hc.method || 'GET';
+            document.getElementById('backend-health-interval-input').value = hc.interval_seconds ?? 30;
+            document.getElementById('backend-health-timeout-input').value = hc.timeout_seconds ?? 5;
+            document.getElementById('backend-health-max-fail-input').value = hc.max_consecutive_failures ?? 3;
+
+            const errBox = document.getElementById('backend-form-error');
+            if (errBox) errBox.classList.add('hidden');
+
+            toggleAuthFields();
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeBackendFormModal() {
+            const modal = document.getElementById('modal-backend-form');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function applyBackendPreset(preset) {
+            if (preset === 'gcp-provisioned') {
+                document.getElementById('backend-id-input').value = 'gcp-provisioned-gemini';
+                document.getElementById('backend-name-input').value = 'GCP Provisioned Throughput (Vertex AI Gemini)';
+                document.getElementById('backend-desc-input').value = 'Dedicated Provisioned Throughput endpoint on Vertex AI for high-throughput batch and online workloads';
+                document.getElementById('backend-endpoint-input').value = 'https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models';
+                document.getElementById('backend-auth-type-input').value = 'google_adc';
+                document.getElementById('backend-audience-input').value = 'https://aiplatform.googleapis.com/';
+                document.getElementById('backend-cost-tier-input').value = 'low';
+                document.getElementById('backend-priority-input').value = '100';
+                document.getElementById('backend-max-batch-input').value = '10000';
+                document.getElementById('backend-concurrency-input').value = '100';
+                document.getElementById('backend-supports-online-input').checked = true;
+                document.getElementById('backend-supports-batch-input').checked = true;
+                document.getElementById('backend-models-input').value = 'gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash, text-embedding-004';
+                document.getElementById('backend-health-url-input').value = 'https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/endpoints';
+                document.getElementById('backend-health-method-input').value = 'GET';
+                document.getElementById('backend-health-interval-input').value = '30';
+                document.getElementById('backend-health-timeout-input').value = '5';
+                document.getElementById('backend-health-max-fail-input').value = '3';
+            } else if (preset === 'gemini-flex') {
+                document.getElementById('backend-id-input').value = 'gemini-flex';
+                document.getElementById('backend-name-input').value = 'Vertex AI Gemini Pay-as-you-go (FLEX)';
+                document.getElementById('backend-desc-input').value = 'Standard Vertex AI Gemini on-demand endpoints for overflow and fallback';
+                document.getElementById('backend-endpoint-input').value = 'https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models';
+                document.getElementById('backend-auth-type-input').value = 'google_adc';
+                document.getElementById('backend-audience-input').value = 'https://aiplatform.googleapis.com/';
+                document.getElementById('backend-cost-tier-input').value = 'medium';
+                document.getElementById('backend-priority-input').value = '70';
+                document.getElementById('backend-max-batch-input').value = '1';
+                document.getElementById('backend-concurrency-input').value = '50';
+                document.getElementById('backend-supports-online-input').checked = true;
+                document.getElementById('backend-supports-batch-input').checked = false;
+                document.getElementById('backend-models-input').value = 'gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash';
+                document.getElementById('backend-health-url-input').value = 'https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-central1/publishers/google/models/gemini-1.5-flash';
+                document.getElementById('backend-health-method-input').value = 'GET';
+                document.getElementById('backend-health-interval-input').value = '30';
+                document.getElementById('backend-health-timeout-input').value = '5';
+                document.getElementById('backend-health-max-fail-input').value = '3';
+            } else if (preset === 'openai') {
+                document.getElementById('backend-id-input').value = 'openai-direct';
+                document.getElementById('backend-name-input').value = 'OpenAI Direct API';
+                document.getElementById('backend-desc-input').value = 'Direct OpenAI API endpoint with batch and online capabilities';
+                document.getElementById('backend-endpoint-input').value = 'https://api.openai.com/v1';
+                document.getElementById('backend-auth-type-input').value = 'api_key';
+                document.getElementById('backend-secret-env-input').value = 'OPENAI_API_KEY';
+                document.getElementById('backend-header-name-input').value = 'Authorization';
+                document.getElementById('backend-header-prefix-input').value = 'Bearer ';
+                document.getElementById('backend-cost-tier-input').value = 'high';
+                document.getElementById('backend-priority-input').value = '40';
+                document.getElementById('backend-max-batch-input').value = '50000';
+                document.getElementById('backend-concurrency-input').value = '40';
+                document.getElementById('backend-supports-online-input').checked = true;
+                document.getElementById('backend-supports-batch-input').checked = true;
+                document.getElementById('backend-models-input').value = 'gpt-4o, gpt-4o-mini, o1, o3-mini, text-embedding-3-small, text-embedding-3-large';
+                document.getElementById('backend-health-url-input').value = 'https://api.openai.com/v1/models';
+                document.getElementById('backend-health-method-input').value = 'GET';
+                document.getElementById('backend-health-interval-input').value = '60';
+                document.getElementById('backend-health-timeout-input').value = '5';
+                document.getElementById('backend-health-max-fail-input').value = '3';
+            } else if (preset === 'vllm') {
+                document.getElementById('backend-id-input').value = 'vllm-custom-endpoint';
+                document.getElementById('backend-name-input').value = 'Custom vLLM OpenAI-Compatible Endpoint';
+                document.getElementById('backend-desc-input').value = 'Self-hosted high-throughput inference server with open-weights LLMs';
+                document.getElementById('backend-endpoint-input').value = 'http://vllm-service.internal:8000/v1';
+                document.getElementById('backend-auth-type-input').value = 'none';
+                document.getElementById('backend-cost-tier-input').value = 'low';
+                document.getElementById('backend-priority-input').value = '80';
+                document.getElementById('backend-max-batch-input').value = '500';
+                document.getElementById('backend-concurrency-input').value = '60';
+                document.getElementById('backend-supports-online-input').checked = true;
+                document.getElementById('backend-supports-batch-input').checked = false;
+                document.getElementById('backend-models-input').value = 'llama-3.3-70b-instruct, mistral-large-2411, qwen-2.5-72b';
+                document.getElementById('backend-health-url-input').value = 'http://vllm-service.internal:8000/health';
+                document.getElementById('backend-health-method-input').value = 'GET';
+                document.getElementById('backend-health-interval-input').value = '20';
+                document.getElementById('backend-health-timeout-input').value = '3';
+                document.getElementById('backend-health-max-fail-input').value = '2';
+            } else if (preset === 'mock') {
+                document.getElementById('backend-id-input').value = 'mock-high-capacity';
+                document.getElementById('backend-name-input').value = 'Internal Mock Backend (Testing & Simulation)';
+                document.getElementById('backend-desc-input').value = 'Mock endpoint for stress testing, failover testing, and offline evaluation';
+                document.getElementById('backend-endpoint-input').value = 'mock://internal/v1';
+                document.getElementById('backend-auth-type-input').value = 'none';
+                document.getElementById('backend-cost-tier-input').value = 'low';
+                document.getElementById('backend-priority-input').value = '90';
+                document.getElementById('backend-max-batch-input').value = '1';
+                document.getElementById('backend-concurrency-input').value = '1000';
+                document.getElementById('backend-supports-online-input').checked = true;
+                document.getElementById('backend-supports-batch-input').checked = false;
+                document.getElementById('backend-models-input').value = 'mock-model-v1, gemini-2.0-flash, gpt-4o';
+                document.getElementById('backend-health-url-input').value = 'mock://internal/health';
+                document.getElementById('backend-health-method-input').value = 'GET';
+                document.getElementById('backend-health-interval-input').value = '10';
+                document.getElementById('backend-health-timeout-input').value = '2';
+                document.getElementById('backend-health-max-fail-input').value = '2';
+            }
+            toggleAuthFields();
+        }
+
+        async function saveBackendSubmit() {
+            const errBox = document.getElementById('backend-form-error');
+            const errMsg = document.getElementById('backend-form-error-msg');
+            const submitBtn = document.getElementById('backend-form-submit-btn');
+            const submitText = document.getElementById('backend-submit-text');
+
+            if (errBox) errBox.classList.add('hidden');
+
+            const backendId = document.getElementById('backend-id-input').value.trim();
+            const name = document.getElementById('backend-name-input').value.trim();
+            const desc = document.getElementById('backend-desc-input').value.trim();
+            const isActive = document.getElementById('backend-active-input').checked;
+            const endpointUrl = document.getElementById('backend-endpoint-input').value.trim();
+            
+            if (!backendId || !name || !endpointUrl) {
+                if (errBox && errMsg) {
+                    errMsg.innerText = 'Backend ID, Display Name, and Endpoint URL are required fields.';
+                    errBox.classList.remove('hidden');
+                }
+                return;
+            }
+
+            const authType = document.getElementById('backend-auth-type-input').value;
+            const secretEnv = document.getElementById('backend-secret-env-input').value.trim() || null;
+            const audience = document.getElementById('backend-audience-input').value.trim() || null;
+            const headerName = document.getElementById('backend-header-name-input').value.trim() || 'Authorization';
+            const headerPrefix = document.getElementById('backend-header-prefix-input').value;
+            
+            const costTier = document.getElementById('backend-cost-tier-input').value;
+            const priorityWeight = parseInt(document.getElementById('backend-priority-input').value, 10) || 50;
+            const maxBatchSize = parseInt(document.getElementById('backend-max-batch-input').value, 10) || 1000;
+            const concurrencyLimit = parseInt(document.getElementById('backend-concurrency-input').value, 10) || 50;
+            const supportsOnline = document.getElementById('backend-supports-online-input').checked;
+            const supportsBatch = document.getElementById('backend-supports-batch-input').checked;
+            
+            const modelsRaw = document.getElementById('backend-models-input').value;
+            const supportedModels = modelsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            
+            const healthUrl = document.getElementById('backend-health-url-input').value.trim();
+            const healthMethod = document.getElementById('backend-health-method-input').value;
+            const healthInterval = parseInt(document.getElementById('backend-health-interval-input').value, 10) || 30;
+            const healthTimeout = parseInt(document.getElementById('backend-health-timeout-input').value, 10) || 5;
+            const healthMaxFail = parseInt(document.getElementById('backend-health-max-fail-input').value, 10) || 3;
+
+            const payload = {
+                id: backendId,
+                name: name,
+                description: desc,
+                endpoint_url: endpointUrl,
+                is_active: isActive,
+                cost_tier: costTier,
+                priority_weight: priorityWeight,
+                supported_models: supportedModels,
+                auth: {
+                    type: authType,
+                    secret_env: secretEnv,
+                    audience: audience,
+                    header_name: headerName,
+                    header_prefix: headerPrefix
+                },
+                capabilities: {
+                    supports_online: supportsOnline,
+                    supports_batch: supportsBatch,
+                    max_batch_size: maxBatchSize,
+                    concurrency_limit: concurrencyLimit
+                },
+                health_check: healthUrl ? {
+                    endpoint_url: healthUrl,
+                    method: healthMethod,
+                    interval_seconds: healthInterval,
+                    timeout_seconds: healthTimeout,
+                    expected_status: 200,
+                    max_consecutive_failures: healthMaxFail
+                } : null
+            };
+
+            // Set loading state
+            if (submitBtn) submitBtn.disabled = true;
+            if (submitText) submitText.innerText = backendFormMode === 'add' ? 'Creating...' : 'Saving...';
+
             try {
-                const res = await fetch(`/v1/admin/backends/${id}/probe`, { method: 'POST' });
-                const data = await res.json();
-                alert(`Probe result for ${id}: ${data.status.is_healthy ? 'HEALTHY' : 'UNHEALTHY'} (latency: ${data.status.last_latency_ms?.toFixed(1)}ms)`);
-                loadBackends();
+                let res;
+                if (backendFormMode === 'add') {
+                    res = await fetch('/v1/admin/backends', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch(`/v1/admin/backends/${encodeURIComponent(backendId)}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                const result = await res.json();
+                if (!res.ok) {
+                    throw new Error(result.detail || 'Failed to save backend service');
+                }
+
+                closeBackendFormModal();
+                showToast(backendFormMode === 'add' 
+                    ? `Backend service '${backendId}' created successfully` 
+                    : `Backend service '${backendId}' updated successfully`, 'success');
+                await loadBackends();
             } catch(e) {
-                alert("Probe failed: " + e);
+                console.error('Save backend error', e);
+                if (errBox && errMsg) {
+                    errMsg.innerText = e.message;
+                    errBox.classList.remove('hidden');
+                }
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+                if (submitText) submitText.innerText = backendFormMode === 'add' ? 'Create Backend Service' : 'Save Changes';
+            }
+        }
+
+        function openDeleteBackendModal(encodedId, encodedName) {
+            const id = decodeURIComponent(encodedId);
+            const name = decodeURIComponent(encodedName);
+            backendDeleteTargetId = id;
+
+            const nameEl = document.getElementById('delete-backend-display-name');
+            if (nameEl) nameEl.innerText = name;
+            const idEl = document.getElementById('delete-backend-id');
+            if (idEl) idEl.innerText = id;
+
+            const errBox = document.getElementById('delete-backend-error');
+            if (errBox) errBox.classList.add('hidden');
+
+            const modal = document.getElementById('modal-backend-delete');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function closeDeleteBackendModal() {
+            const modal = document.getElementById('modal-backend-delete');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            backendDeleteTargetId = null;
+        }
+
+        async function confirmDeleteBackend() {
+            if (!backendDeleteTargetId) return;
+
+            const confirmBtn = document.getElementById('delete-backend-confirm-btn');
+            const errBox = document.getElementById('delete-backend-error');
+            if (confirmBtn) confirmBtn.disabled = true;
+
+            try {
+                const res = await fetch(`/v1/admin/backends/${encodeURIComponent(backendDeleteTargetId)}`, {
+                    method: 'DELETE'
+                });
+                const result = await res.json();
+                if (!res.ok) {
+                    throw new Error(result.detail || 'Failed to delete backend service');
+                }
+
+                const deletedId = backendDeleteTargetId;
+                closeDeleteBackendModal();
+                showToast(`Backend service '${deletedId}' deleted successfully`, 'success');
+                await loadBackends();
+            } catch(e) {
+                console.error('Delete backend error', e);
+                if (errBox) {
+                    errBox.innerText = e.message;
+                    errBox.classList.remove('hidden');
+                }
+            } finally {
+                if (confirmBtn) confirmBtn.disabled = false;
+            }
+        }
+
+        async function probeBackend(encodedId) {
+            const id = typeof encodedId === 'string' ? decodeURIComponent(encodedId) : encodedId;
+            const btn = document.getElementById(`probe-btn-${encodeURIComponent(id)}`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-indigo-400"></i> Probing...';
+            }
+
+            try {
+                const res = await fetch(`/v1/admin/backends/${encodeURIComponent(id)}/probe`, { method: 'POST' });
+                const data = await res.json();
+                if (data.status && data.status.is_healthy) {
+                    showToast(`Probe for ${id}: HEALTHY (${data.status.last_latency_ms?.toFixed(1)}ms)`, 'success');
+                } else {
+                    showToast(`Probe for ${id}: UNHEALTHY (${data.status?.last_error || 'Probe failed'})`, 'error');
+                }
+                await loadBackends();
+            } catch(e) {
+                showToast(`Probe failed for ${id}: ${e.message}`, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-heart-pulse text-indigo-400"></i> Probe Health';
+                }
             }
         }
 
         async function probeAllBackends() {
-            await fetch('/v1/admin/backends');
-            loadBackends();
+            const btn = document.getElementById('probe-all-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Probing All...';
+            }
+            try {
+                if (cachedBackends && cachedBackends.length > 0) {
+                    await Promise.all(cachedBackends.map(item => 
+                        fetch(`/v1/admin/backends/${encodeURIComponent(item.config.id)}/probe`, { method: 'POST' }).catch(() => {})
+                    ));
+                    showToast('All backend endpoints probed successfully', 'success');
+                } else {
+                    await fetch('/v1/admin/backends');
+                }
+                await loadBackends();
+            } catch(e) {
+                showToast('Probe all error: ' + e.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-stethoscope text-indigo-400"></i> Probe All Endpoints';
+                }
+            }
         }
 
         async function loadPolicies() {
@@ -1788,6 +2786,7 @@ DASHBOARD_HTML = r"""
         window.addEventListener('DOMContentLoaded', () => {
             loadSystemInfo().then(() => loadInfra());
             loadRequests();
+            loadBackends();
             const searchInput = document.getElementById('search-input');
             if (searchInput) {
                 searchInput.addEventListener('input', () => filterAndRenderRequests());

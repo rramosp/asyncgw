@@ -74,3 +74,47 @@ def test_gateway_settings_port_override(monkeypatch):
     monkeypatch.setenv("API_PORT", "9000")
     settings2 = GatewaySettings()
     assert settings2.api_port == 9000
+
+
+def test_save_and_reload_backends_config(tmp_path):
+    from asyncgw.config import save_backends_config, AuthConfig, CapabilitiesConfig, HealthCheckConfig
+    yaml_file = str(tmp_path / "backends.yaml")
+    
+    backends = [
+        BackendConfig(
+            id="test-vllm-backend",
+            name="Custom vLLM Test Cluster",
+            description="High speed inference cluster",
+            endpoint_url="http://vllm.internal:8000/v1",
+            auth=AuthConfig(type="api_key", secret_env="VLLM_KEY"),
+            capabilities=CapabilitiesConfig(
+                supports_online=True,
+                supports_batch=True,
+                max_batch_size=5000,
+                concurrency_limit=80
+            ),
+            health_check=HealthCheckConfig(
+                endpoint_url="http://vllm.internal:8000/health",
+                method="GET",
+                interval_seconds=15,
+                timeout_seconds=3,
+                expected_status=200,
+                max_consecutive_failures=2
+            ),
+            supported_models=["llama-3.3-70b", "mistral-large"],
+            cost_tier="low",
+            priority_weight=95,
+            is_active=True
+        )
+    ]
+    
+    save_backends_config(backends, yaml_file)
+    loaded = load_backends_config(yaml_file)
+    assert len(loaded) == 1
+    assert loaded[0].id == "test-vllm-backend"
+    assert loaded[0].name == "Custom vLLM Test Cluster"
+    assert loaded[0].capabilities.max_batch_size == 5000
+    assert loaded[0].supported_models == ["llama-3.3-70b", "mistral-large"]
+    assert loaded[0].cost_tier == "low"
+    assert loaded[0].priority_weight == 95
+    assert loaded[0].health_check.interval_seconds == 15
