@@ -98,6 +98,7 @@ class PrimaryRequestWorker:
             backend_service_id=decision.primary_backend.id,
             backend_endpoint=decision.primary_backend.endpoint_url,
             metadata=init_metadata,
+            parent_request_id=envelope.parent_request_id,
         )
 
         async def _call_backend(client: BaseLLMBackend, cfg: BackendConfig) -> BackendExecutionResult:
@@ -132,6 +133,7 @@ class PrimaryRequestWorker:
                 content_tokens=result.content_tokens,
                 backend_batch_service_mode=None,
                 metadata=final_metadata,
+                parent_request_id=envelope.parent_request_id,
             )
             logger.info(
                 f"Successfully completed request {envelope.request_id} via {served_backend.id} in {result.elapsed_seconds:.2f}s"
@@ -152,6 +154,7 @@ class PrimaryRequestWorker:
                     request_id=envelope.request_id,
                     error_message=result.error_message or "Request timed out",
                     metadata=final_metadata,
+                    parent_request_id=envelope.parent_request_id,
                 )
             else:
                 error_payload = {
@@ -171,6 +174,7 @@ class PrimaryRequestWorker:
                     backend_service_id=served_backend.id,
                     backend_batch_service_mode=None,
                     metadata=final_metadata,
+                    parent_request_id=envelope.parent_request_id,
                 )
             logger.warning(
                 f"Request {envelope.request_id} failed with code {result.status_code}: {result.error_message}"
@@ -205,6 +209,7 @@ class PrimaryRequestWorker:
             backend_service_id=decision.primary_backend.id,
             backend_endpoint=decision.primary_backend.endpoint_url,
             metadata=init_metadata,
+            parent_request_id=envelope.parent_request_id,
         )
 
         if decision.requires_batch_breakdown:

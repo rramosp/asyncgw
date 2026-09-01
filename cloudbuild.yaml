@@ -1,11 +1,15 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', '$_GATEWAY_IMAGE', '-f', 'Dockerfile.gateway', '.']
+  args: ['build', '-t', '$_GATEWAY_IMAGE', '-t', '$_GATEWAY_IMAGE_TAGGED', '-f', 'Dockerfile.gateway', '.']
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', '$_WORKER_IMAGE', '-f', 'Dockerfile.worker', '.']
+  args: ['build', '-t', '$_WORKER_IMAGE', '-t', '$_WORKER_IMAGE_TAGGED', '-f', 'Dockerfile.worker', '.']
 images:
 - '$_GATEWAY_IMAGE'
+- '$_GATEWAY_IMAGE_TAGGED'
 - '$_WORKER_IMAGE'
+- '$_WORKER_IMAGE_TAGGED'
 substitutions:
   _GATEWAY_IMAGE: 'gcr.io/$PROJECT_ID/asyncgw-gateway:latest'
+  _GATEWAY_IMAGE_TAGGED: 'gcr.io/$PROJECT_ID/asyncgw-gateway:latest'
   _WORKER_IMAGE: 'gcr.io/$PROJECT_ID/asyncgw-worker:latest'
+  _WORKER_IMAGE_TAGGED: 'gcr.io/$PROJECT_ID/asyncgw-worker:latest'

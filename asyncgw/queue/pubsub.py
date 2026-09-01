@@ -51,25 +51,24 @@ class PubSubQueueProducer(BaseQueueProducer):
 
         await asyncio.to_thread(_sync_create)
 
+    def _resolve_topic_path(self, topic_name: str) -> str:
+        if topic_name.startswith("projects/"):
+            return topic_name
+        return self._get_publisher().topic_path(self.project_id, topic_name)
+
     async def publish_request(self, envelope: AsyncRequestEnvelope) -> str:
         """Publish a request to the primary requests topic."""
-        topic_path = self._get_publisher().topic_path(
-            self.project_id, self.settings.pubsub_topic_requests
-        )
+        topic_path = self._resolve_topic_path(self.settings.pubsub_topic_requests)
         return await self._publish(topic_path, envelope)
 
     async def publish_batch_item(self, envelope: AsyncRequestEnvelope) -> str:
         """Publish an individual batch item to the batch items topic."""
-        topic_path = self._get_publisher().topic_path(
-            self.project_id, self.settings.pubsub_topic_batch_items
-        )
+        topic_path = self._resolve_topic_path(self.settings.pubsub_topic_batch_items)
         return await self._publish(topic_path, envelope)
 
     async def publish_dlq(self, envelope: AsyncRequestEnvelope, reason: str) -> str:
         """Publish to Dead Letter Queue."""
-        topic_path = self._get_publisher().topic_path(
-            self.project_id, self.settings.pubsub_dlq_topic
-        )
+        topic_path = self._resolve_topic_path(self.settings.pubsub_dlq_topic)
         attributes = {"dlq_reason": reason, "request_id": envelope.request_id}
         return await self._publish(topic_path, envelope, extra_attributes=attributes)
 
@@ -150,20 +149,21 @@ class PubSubQueueConsumer(BaseQueueConsumer):
 
         await asyncio.to_thread(_sync_create)
 
+    def _resolve_subscription_path(self, sub_name: str) -> str:
+        if sub_name.startswith("projects/"):
+            return sub_name
+        return self._get_subscriber().subscription_path(self.project_id, sub_name)
+
     async def consume_requests(
         self, callback: Callable[[AsyncRequestEnvelope], Any]
     ) -> None:
-        sub_path = self._get_subscriber().subscription_path(
-            self.project_id, self.settings.pubsub_subscription_requests
-        )
+        sub_path = self._resolve_subscription_path(self.settings.pubsub_subscription_requests)
         await self._start_streaming_pull(sub_path, callback)
 
     async def consume_batch_items(
         self, callback: Callable[[AsyncRequestEnvelope], Any]
     ) -> None:
-        sub_path = self._get_subscriber().subscription_path(
-            self.project_id, self.settings.pubsub_subscription_batch_items
-        )
+        sub_path = self._resolve_subscription_path(self.settings.pubsub_subscription_batch_items)
         await self._start_streaming_pull(sub_path, callback)
 
     async def _start_streaming_pull(

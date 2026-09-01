@@ -1046,8 +1046,10 @@ def create_app(
         dev_mode = settings.environment_mode == "mock"
         repo_name = "asyncgw-docker"
         repo_uri = f"{region}-docker.pkg.dev/{project_id}/{repo_name}"
-        gateway_image = f"{repo_uri}/asyncgw-gateway:latest"
-        worker_image = f"{repo_uri}/asyncgw-worker:latest"
+        gateway_image = settings.container_image_gateway or f"{repo_uri}/asyncgw-gateway:latest"
+        worker_image = settings.container_image_worker or f"{repo_uri}/asyncgw-worker:latest"
+        gw_tag = gateway_image.split(":")[-1] if ":" in gateway_image else "latest"
+        wk_tag = worker_image.split(":")[-1] if ":" in worker_image else "latest"
 
         return {
             "environment_mode": settings.environment_mode,
@@ -1073,7 +1075,7 @@ def create_app(
                 "images": [
                     {
                         "name": "asyncgw-gateway",
-                        "tag": "latest",
+                        "tag": gw_tag,
                         "full_image_uri": gateway_image,
                         "dockerfile": "Dockerfile.gateway",
                         "base_image": "python:3.11-slim",
@@ -1085,7 +1087,7 @@ def create_app(
                     },
                     {
                         "name": "asyncgw-worker",
-                        "tag": "latest",
+                        "tag": wk_tag,
                         "full_image_uri": worker_image,
                         "dockerfile": "Dockerfile.worker",
                         "base_image": "python:3.11-slim",

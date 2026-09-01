@@ -66,6 +66,14 @@ resource "google_cloud_run_v2_service" "gateway" {
         name  = "ASYNCGW_ENV_MODE"
         value = "gcp"
       }
+      env {
+        name  = "CONTAINER_IMAGE_GATEWAY"
+        value = var.container_image_gateway
+      }
+      env {
+        name  = "CONTAINER_IMAGE_WORKER"
+        value = var.container_image_worker
+      }
     }
   }
 
@@ -151,6 +159,14 @@ resource "google_cloud_run_v2_service" "worker_service" {
       env {
         name  = "ASYNCGW_ENV_MODE"
         value = "gcp"
+      }
+      env {
+        name  = "CONTAINER_IMAGE_GATEWAY"
+        value = var.container_image_gateway
+      }
+      env {
+        name  = "CONTAINER_IMAGE_WORKER"
+        value = var.container_image_worker
       }
     }
   }

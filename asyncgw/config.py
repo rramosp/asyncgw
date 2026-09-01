@@ -187,6 +187,11 @@ class GatewaySettings(BaseModel):
     # Mode: "gcp" or "mock" (for offline/in-memory local testing)
     environment_mode: str = Field(default_factory=lambda: os.getenv("ASYNCGW_ENV_MODE", "mock"))
 
+    # Container Images & Tags
+    container_image_gateway: Optional[str] = Field(default_factory=lambda: os.getenv("CONTAINER_IMAGE_GATEWAY"))
+    container_image_worker: Optional[str] = Field(default_factory=lambda: os.getenv("CONTAINER_IMAGE_WORKER"))
+    deploy_tag: Optional[str] = Field(default_factory=lambda: os.getenv("DEPLOY_TAG"))
+
     # File paths
     backends_config_path: str = Field(
         default_factory=lambda: os.getenv("BACKENDS_CONFIG_PATH", "config/backends.yaml")

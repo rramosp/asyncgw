@@ -183,13 +183,14 @@ class BigQueryRequestTracker(BaseRequestTracker):
         backend_endpoint: Optional[str] = None,
         sequence_number: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        parent_request_id: Optional[str] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
             "request_id": request_id,
-            "parent_request_id": None,
+            "parent_request_id": parent_request_id,
             "sequence_number": sequence_number,
-            "request_type": "request",
+            "request_type": "batch.sub_request" if parent_request_id or sequence_number is not None else "chat.completion",
             "status": RequestStatusEnum.PROCESSING.value,
             "created_at": now_iso,
             "started_at": now_iso,
@@ -211,13 +212,14 @@ class BigQueryRequestTracker(BaseRequestTracker):
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        parent_request_id: Optional[str] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
             "request_id": request_id,
-            "parent_request_id": None,
+            "parent_request_id": parent_request_id,
             "sequence_number": sequence_number,
-            "request_type": "request",
+            "request_type": "batch.sub_request" if parent_request_id or sequence_number is not None else "chat.completion",
             "status": RequestStatusEnum.COMPLETED.value,
             "created_at": now_iso,
             "completed_at": now_iso,
@@ -243,13 +245,14 @@ class BigQueryRequestTracker(BaseRequestTracker):
         backend_batch_service_mode: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         response_gcs_uri: Optional[str] = None,
+        parent_request_id: Optional[str] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
             "request_id": request_id,
-            "parent_request_id": None,
+            "parent_request_id": parent_request_id,
             "sequence_number": sequence_number,
-            "request_type": "request",
+            "request_type": "batch.sub_request" if parent_request_id or sequence_number is not None else "chat.completion",
             "status": RequestStatusEnum.FAILED.value,
             "created_at": now_iso,
             "completed_at": now_iso,
@@ -269,13 +272,14 @@ class BigQueryRequestTracker(BaseRequestTracker):
         error_message: str = "Request exceeded user-specified maximum wait time",
         sequence_number: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        parent_request_id: Optional[str] = None,
     ) -> None:
         now_iso = datetime.now(timezone.utc).isoformat()
         row = {
             "request_id": request_id,
-            "parent_request_id": None,
+            "parent_request_id": parent_request_id,
             "sequence_number": sequence_number,
-            "request_type": "request",
+            "request_type": "batch.sub_request" if parent_request_id or sequence_number is not None else "chat.completion",
             "status": RequestStatusEnum.TIMED_OUT.value,
             "created_at": now_iso,
             "completed_at": now_iso,
@@ -375,7 +379,10 @@ class BigQueryRequestTracker(BaseRequestTracker):
                 MAX(content_tokens) as content_tokens,
                 ARRAY_AGG(metadata_json IGNORE NULLS ORDER BY created_at DESC LIMIT 1)[OFFSET(0)] as metadata_json
             FROM `{self.full_table_id}`
-            WHERE parent_request_id = @parent_id
+            WHERE request_id IN (
+                SELECT DISTINCT request_id FROM `{self.full_table_id}` WHERE parent_request_id = @parent_id
+            )
+            OR parent_request_id = @parent_id
             GROUP BY request_id
             ORDER BY sequence_number ASC
         """

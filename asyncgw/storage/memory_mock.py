@@ -28,6 +28,19 @@ class InMemoryRequestTracker(BaseRequestTracker):
             return f"{request_id}:{sequence_number}"
         return request_id
 
+    def _find_key(self, request_id: str, sequence_number: Optional[int] = None) -> Optional[str]:
+        if sequence_number is not None:
+            key = f"{request_id}:{sequence_number}"
+            if key in self.records:
+                return key
+        if request_id in self.records:
+            return request_id
+        for k, r in self.records.items():
+            if r.get("request_id") == request_id:
+                if sequence_number is None or r.get("sequence_number") == sequence_number:
+                    return k
+        return None
+
     async def register_request(self, envelope: AsyncRequestEnvelope) -> None:
         async with self._lock:
             key = self._get_key(envelope.request_id, envelope.sequence_number)
@@ -96,14 +109,17 @@ class InMemoryRequestTracker(BaseRequestTracker):
         backend_endpoint: Optional[str] = None,
         sequence_number: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        parent_request_id: Optional[str] = None,
     ) -> None:
         async with self._lock:
-            key = self._get_key(request_id, sequence_number)
+            key = self._find_key(request_id, sequence_number) or self._get_key(request_id, sequence_number)
             if key in self.records:
                 self.records[key]["status"] = RequestStatusEnum.PROCESSING.value
                 self.records[key]["started_at"] = datetime.now(timezone.utc)
                 self.records[key]["backend_service_id"] = backend_service_id
                 self.records[key]["backend_endpoint"] = backend_endpoint
+                if parent_request_id and not self.records[key].get("parent_request_id"):
+                    self.records[key]["parent_request_id"] = parent_request_id
                 if metadata is not None:
                     existing = {}
                     if self.records[key].get("metadata_json"):
@@ -126,9 +142,10 @@ class InMemoryRequestTracker(BaseRequestTracker):
         sequence_number: Optional[int] = None,
         backend_batch_service_mode: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        parent_request_id: Optional[str] = None,
     ) -> None:
         async with self._lock:
-            key = self._get_key(request_id, sequence_number)
+            key = self._find_key(request_id, sequence_number) or self._get_key(request_id, sequence_number)
             if key in self.records:
                 self.records[key]["status"] = RequestStatusEnum.COMPLETED.value
                 self.records[key]["completed_at"] = datetime.now(timezone.utc)
@@ -138,6 +155,8 @@ class InMemoryRequestTracker(BaseRequestTracker):
                 self.records[key]["elapsed_seconds"] = elapsed_seconds
                 self.records[key]["backend_service_id"] = backend_service_id
                 self.records[key]["content_tokens"] = content_tokens or 0
+                if parent_request_id and not self.records[key].get("parent_request_id"):
+                    self.records[key]["parent_request_id"] = parent_request_id
                 if backend_batch_service_mode is not None:
                     self.records[key]["backend_batch_service_mode"] = backend_batch_service_mode
                 if metadata is not None:
@@ -167,15 +186,18 @@ class InMemoryRequestTracker(BaseRequestTracker):
         backend_batch_service_mode: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         response_gcs_uri: Optional[str] = None,
+        parent_request_id: Optional[str] = None,
     ) -> None:
         async with self._lock:
-            key = self._get_key(request_id, sequence_number)
+            key = self._find_key(request_id, sequence_number) or self._get_key(request_id, sequence_number)
             if key in self.records:
                 self.records[key]["status"] = RequestStatusEnum.FAILED.value
                 self.records[key]["completed_at"] = datetime.now(timezone.utc)
                 self.records[key]["error_message"] = error_message
                 self.records[key]["response_status_code"] = response_status_code or 500
                 self.records[key]["elapsed_seconds"] = elapsed_seconds or 0.0
+                if parent_request_id and not self.records[key].get("parent_request_id"):
+                    self.records[key]["parent_request_id"] = parent_request_id
                 if response_gcs_uri is not None:
                     self.records[key]["response_gcs_uri"] = response_gcs_uri
                 if backend_service_id:
@@ -204,13 +226,16 @@ class InMemoryRequestTracker(BaseRequestTracker):
         error_message: str = "Request exceeded user-specified maximum wait time",
         sequence_number: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        parent_request_id: Optional[str] = None,
     ) -> None:
         async with self._lock:
-            key = self._get_key(request_id, sequence_number)
+            key = self._find_key(request_id, sequence_number) or self._get_key(request_id, sequence_number)
             if key in self.records:
                 self.records[key]["status"] = RequestStatusEnum.TIMED_OUT.value
                 self.records[key]["completed_at"] = datetime.now(timezone.utc)
                 self.records[key]["error_message"] = error_message
+                if parent_request_id and not self.records[key].get("parent_request_id"):
+                    self.records[key]["parent_request_id"] = parent_request_id
                 if metadata is not None:
                     existing = {}
                     if self.records[key].get("metadata_json"):
@@ -225,7 +250,7 @@ class InMemoryRequestTracker(BaseRequestTracker):
         self, request_id: str, sequence_number: Optional[int] = None
     ) -> Optional[RequestStatusResponse]:
         async with self._lock:
-            key = self._get_key(request_id, sequence_number)
+            key = self._find_key(request_id, sequence_number) or self._get_key(request_id, sequence_number)
             record = self.records.get(key)
             if not record:
                 return None

@@ -456,7 +456,7 @@ DASHBOARD_HTML = r"""
                                         <span class="text-[11px] text-slate-400">FastAPI Gateway & UI Dashboard Image</span>
                                     </div>
                                 </div>
-                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 mono">:latest</span>
+                                <span id="infra-gw-img-tag" class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 mono">:latest</span>
                             </div>
 
                             <div>
@@ -515,7 +515,7 @@ DASHBOARD_HTML = r"""
                                         <span class="text-[11px] text-slate-400">Inference Engine & Batch Worker Image</span>
                                     </div>
                                 </div>
-                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-950 text-amber-400 border border-amber-800 mono">:latest</span>
+                                <span id="infra-wk-img-tag" class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-950 text-amber-400 border border-amber-800 mono">:latest</span>
                             </div>
 
                             <div>
@@ -2755,6 +2755,14 @@ DASHBOARD_HTML = r"""
                 const arRepoUrl = systemInfo.artifact_registry?.repository_url || `${region}-docker.pkg.dev/${proj}/${arRepo}`;
                 const gwImgUri = systemInfo.artifact_registry?.images?.[0]?.full_image_uri || `${arRepoUrl}/asyncgw-gateway:latest`;
                 const wkImgUri = systemInfo.artifact_registry?.images?.[1]?.full_image_uri || `${arRepoUrl}/asyncgw-worker:latest`;
+
+                const gwTag = systemInfo.artifact_registry?.images?.[0]?.tag || (gwImgUri.includes(':') ? gwImgUri.split(':').pop() : 'latest');
+                const wkTag = systemInfo.artifact_registry?.images?.[1]?.tag || (wkImgUri.includes(':') ? wkImgUri.split(':').pop() : 'latest');
+
+                const gwTagEl = document.getElementById('infra-gw-img-tag');
+                if (gwTagEl) gwTagEl.innerText = `:${gwTag}`;
+                const wkTagEl = document.getElementById('infra-wk-img-tag');
+                if (wkTagEl) wkTagEl.innerText = `:${wkTag}`;
 
                 const gwImgEl = document.getElementById('infra-gw-img-uri');
                 if (gwImgEl) gwImgEl.innerText = gwImgUri;

@@ -134,6 +134,20 @@ get_deployment_context() {
         reg_clean="$(echo "$GCP_REGION_VAL" | awk '{print $1}')"
         GCP_ZONE_VAL="${reg_clean}-a"
     fi
+
+    # 4. Unique Build Tag for Zero-Downtime Terraform Revision Triggering
+    DEPLOY_TAG="${DEPLOY_TAG:-}"
+    if [ -z "$DEPLOY_TAG" ]; then
+        local git_hash
+        git_hash="$(git rev-parse --short HEAD 2>/dev/null || echo '')"
+        local ts
+        ts="$(date +%Y%m%d%H%M%S)"
+        if [ -n "$git_hash" ]; then
+            DEPLOY_TAG="b${ts}-${git_hash}"
+        else
+            DEPLOY_TAG="b${ts}"
+        fi
+    fi
 }
 
 show_deployment_context() {
@@ -143,6 +157,7 @@ show_deployment_context() {
     echo -e "  - GCP Username:  ${GREEN}${BOLD}${GCP_USERNAME}${NC}"
     echo -e "  - GCP Region:    ${GREEN}${BOLD}${GCP_REGION_VAL}${NC}"
     echo -e "  - GCP Zone:      ${GREEN}${BOLD}${GCP_ZONE_VAL}${NC}"
+    echo -e "  - Image Tag:     ${GREEN}${BOLD}${DEPLOY_TAG}${NC}"
     echo "------------------------------------------------------------------"
     echo ""
 }
@@ -276,18 +291,20 @@ build_and_push_containers() {
 
     ensure_artifact_registry "${project}" "${region}"
 
-    local gateway_image="${region}-docker.pkg.dev/${project}/asyncgw-docker/asyncgw-gateway:latest"
-    local worker_image="${region}-docker.pkg.dev/${project}/asyncgw-docker/asyncgw-worker:latest"
+    local gw_latest="${region}-docker.pkg.dev/${project}/asyncgw-docker/asyncgw-gateway:latest"
+    local gw_tagged="${region}-docker.pkg.dev/${project}/asyncgw-docker/asyncgw-gateway:${DEPLOY_TAG}"
+    local wk_latest="${region}-docker.pkg.dev/${project}/asyncgw-docker/asyncgw-worker:latest"
+    local wk_tagged="${region}-docker.pkg.dev/${project}/asyncgw-docker/asyncgw-worker:${DEPLOY_TAG}"
 
     log_info "Building and pushing container images via Cloud Build to project '${project}'..."
-    log_info "  - Gateway: ${gateway_image}"
-    log_info "  - Worker:  ${worker_image}"
+    log_info "  - Gateway: ${gw_tagged} (and :latest)"
+    log_info "  - Worker:  ${wk_tagged} (and :latest)"
 
     local cb_config="${SCRIPT_DIR}/cloudbuild.yaml"
     gcloud builds submit \
         --project="${project}" \
         --config="${cb_config}" \
-        --substitutions="_GATEWAY_IMAGE=${gateway_image},_WORKER_IMAGE=${worker_image}" \
+        --substitutions="_GATEWAY_IMAGE=${gw_latest},_GATEWAY_IMAGE_TAGGED=${gw_tagged},_WORKER_IMAGE=${wk_latest},_WORKER_IMAGE_TAGGED=${wk_tagged}" \
         "${SCRIPT_DIR}"
 
     log_success "All container images built and pushed to Artifact Registry successfully."
@@ -587,8 +604,8 @@ deploy_terraform() {
     cd "${TERRAFORM_DIR}"
 
     if [ -n "${GCP_PROJECT:-}" ] && [ "${GCP_PROJECT}" != "asyncgw-demo-project" ]; then
-        local gw_img="${GCP_REGION_VAL}-docker.pkg.dev/${GCP_PROJECT}/asyncgw-docker/asyncgw-gateway:latest"
-        local wk_img="${GCP_REGION_VAL}-docker.pkg.dev/${GCP_PROJECT}/asyncgw-docker/asyncgw-worker:latest"
+        local gw_img="${GCP_REGION_VAL}-docker.pkg.dev/${GCP_PROJECT}/asyncgw-docker/asyncgw-gateway:${DEPLOY_TAG}"
+        local wk_img="${GCP_REGION_VAL}-docker.pkg.dev/${GCP_PROJECT}/asyncgw-docker/asyncgw-worker:${DEPLOY_TAG}"
         cat <<EOF > "${TERRAFORM_DIR}/terraform.tfvars"
 project_id              = "${GCP_PROJECT}"
 region                  = "${GCP_REGION_VAL}"

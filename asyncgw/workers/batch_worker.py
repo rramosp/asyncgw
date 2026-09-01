@@ -69,6 +69,7 @@ class BatchSubRequestWorker:
                 request_id=envelope.request_id,
                 error_message=f"Sub-request exceeded maximum wait deadline ({envelope.max_wait_seconds}s)",
                 sequence_number=seq,
+                parent_request_id=parent_id,
             )
             await self.batch_reassembler.try_reassemble_batch(parent_id)
             return
@@ -98,6 +99,7 @@ class BatchSubRequestWorker:
             backend_endpoint=decision.primary_backend.endpoint_url,
             sequence_number=seq,
             metadata=init_metadata,
+            parent_request_id=parent_id,
         )
 
         # 3. Execute with failover
@@ -135,6 +137,7 @@ class BatchSubRequestWorker:
                 content_tokens=result.content_tokens,
                 sequence_number=seq,
                 metadata=final_metadata,
+                parent_request_id=parent_id,
             )
             logger.info(f"Sub-request {envelope.request_id} (seq {seq}) completed via {served_backend.id}")
         else:
@@ -156,6 +159,7 @@ class BatchSubRequestWorker:
                 backend_service_id=served_backend.id,
                 sequence_number=seq,
                 metadata=final_metadata,
+                parent_request_id=parent_id,
             )
             logger.warning(f"Sub-request {envelope.request_id} (seq {seq}) failed: {result.error_message}")
 
